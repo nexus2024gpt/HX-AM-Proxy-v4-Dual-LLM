@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HX-AM Proxy v4</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .container { max-width: 1300px; margin: 0 auto; }
+        h1 { color: #6366f1; margin-bottom: 0.5rem; font-size: 2rem; }
+        .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #334155; }
+        .tab-button {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button:hover { color: #e2e8f0; }
+        .tab-button.active { color: #6366f1; border-bottom-color: #6366f1; }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Query form */
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #1e293b;
+            border: 2px solid #475569;
+            color: #fff;
+            padding: 1rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+            border-radius: 8px;
+        }
+        textarea:focus { outline: none; border-color: #6366f1; }
+        .submit-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff;
+            border: none;
+            padding: 0.75rem 2rem;
+            cursor: pointer;
+            margin: 1rem 0;
+            font-size: 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+        .submit-btn:disabled { background: #64748b; cursor: not-allowed; transform: none; }
+        .loading {
+            display: none;
+            color: #6366f1;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(99,102,241,0.1);
+            border-radius: 8px;
+        }
+        .loading.active { display: block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Result panels */
+        .pipeline {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+        .panel {
+            flex: 1;
+            background: #1e293b;
+            border-radius: 12px;
+            border-left: 4px solid #6366f1;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .panel h3 {
+            background: #334155;
+            padding: 0.75rem;
+            margin: 0;
+            font-size: 1rem;
+            color: #cbd5e1;
+        }
+        .panel pre {
+            padding: 1rem;
+            margin: 0;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #e2e8f0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .badge {
+            background: #4ade80;
+            color: #0f172a;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+
+        /* History & Artifacts */
+        .history-list, .artifacts-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .history-item, .artifact-item {
+            background: #1e293b;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            border-radius: 8px;
+            border-left: 3px solid #475569;
+            cursor: pointer;
+            transition: border-left-color 0.2s;
+        }
+        .history-item:hover, .artifact-item:hover { border-left-color: #6366f1; background: #2d3a52; }
+        .history-timestamp { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.25rem; }
+        .history-query { font-weight: bold; margin-bottom: 0.25rem; }
+        .history-meta { font-size: 0.7rem; color: #4ade80; }
+        .artifact-filename { font-family: monospace; color: #fbbf24; }
+
+        .refresh-btn {
+            background: #475569;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        .refresh-btn:hover { background: #64748b; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal-content {
+            background: #1e293b;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #6366f1;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 900px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+        .close:hover { color: #fff; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔮 HX-AM Proxy v4</h1>
+    <p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Хранение истории и артефактов</p>
+
+    <div class="tabs">
+        <button class="tab-button active" onclick="switchTab('query')">💬 Запрос</button>
+        <button class="tab-button" onclick="switchTab('history')">📜 История</button>
+        <button class="tab-button" onclick="switchTab('artifacts')">📦 Артефакты</button>
+    </div>
+
+    <!-- Вкладка Запрос -->
+    <div id="query-tab" class="tab-content active">
+        <textarea id="queryText" placeholder="Введите ваш запрос...&#10;Пример: Что такое LLM? Объясни коротко."></textarea>
+        <button class="submit-btn" id="submitBtn" onclick="sendQuery()">🚀 Отправить</button>
+        <div id="loading" class="loading">⏳ Генерация и верификация... (до 10 секунд)</div>
+        <div id="pipeline" class="pipeline"></div>
+    </div>
+
+    <!-- Вкладка История -->
+    <div id="history-tab" class="tab-content">
+        <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить историю</button>
+        <div id="history-list" class="history-list">Загрузка...</div>
+    </div>
+
+    <!-- Вкладка Артефакты -->
+    <div id="artifacts-tab" class="tab-content">
+        <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить артефакты</button>
+        <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
+    </div>
+</div>
+
+<!-- Модальное окно для просмотра артефакта -->
+<div id="artifactModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>📄 Артефакт</h2>
+        <pre id="artifactContent">Загрузка...</pre>
+    </div>
+</div>
+
+<script>
+    // Переключение вкладок
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(tabName + '-tab').classList.add('active');
+        if (tabName === 'history') loadHistory();
+        if (tabName === 'artifacts') loadArtifacts();
+    }
+
+    // Отправка запроса
+    async function sendQuery() {
+        const text = document.getElementById('queryText').value.trim();
+        if (!text) return;
+
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingDiv = document.getElementById('loading');
+        const pipelineDiv = document.getElementById('pipeline');
+
+        submitBtn.disabled = true;
+        loadingDiv.classList.add('active');
+        pipelineDiv.innerHTML = '';
+
+        try {
+            const response = await fetch('/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, domain: 'general', x_coordinate: 500 })
+            });
+            const data = await response.json();
+
+            // Отображаем три панели: генерация, верификация, решение
+            let html = `
+                <div class="panel">
+                    <h3>⚙️ Генератор (Groq)</h3>
+                    <pre>${JSON.stringify(data.generation, null, 2)}</pre>
+                </div>
+                <div class="panel">
+                    <h3>🔍 Верификатор (Gemini)</h3>
+                    <pre>${JSON.stringify(data.verification, null, 2)}</pre>
+                </div>
+                <div class="panel">
+                    <h3>✅ Решение</h3>
+                    <pre>Сохранён: ${data.saved ? 'ДА' : 'НЕТ'}\nАртефакт: ${data.artifact || '—'}</pre>
+                </div>
+            `;
+            pipelineDiv.innerHTML = html;
+
+            // Если артефакт сохранён, обновляем список артефактов (если вкладка активна)
+            if (data.saved && data.artifact) {
+                const activeTab = document.querySelector('.tab-button.active').innerText;
+                if (activeTab.includes('Артефакты')) loadArtifacts();
+            }
+        } catch (err) {
+            pipelineDiv.innerHTML = `<div class="error" style="color:#ef4444; background:#1e293b; padding:1rem; border-radius:8px;">❌ Ошибка: ${err.message}</div>`;
+        } finally {
+            submitBtn.disabled = false;
+            loadingDiv.classList.remove('active');
+        }
+    }
+
+    // Загрузка истории (эндпоинт /history)
+    async function loadHistory() {
+        const container = document.getElementById('history-list');
+        container.innerHTML = 'Загрузка...';
+        try {
+            const res = await fetch('/history');
+            const data = await res.json();
+            if (!data.history || data.history.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8; text-align:center;">📭 История пуста</p>';
+                return;
+            }
+            let html = '';
+            data.history.forEach(entry => {
+                const time = new Date(entry.time * 1000).toLocaleString('ru-RU');
+                const query = entry.query.substring(0, 120) + (entry.query.length > 120 ? '…' : '');
+                const saved = entry.saved ? '✅ сохранён' : '❌ не сохранён';
+                html += `
+                    <div class="history-item" onclick="showHistoryDetail(${JSON.stringify(entry).replace(/"/g, '&quot;')})">
+                        <div class="history-timestamp">🕐 ${time}</div>
+                        <div class="history-query">${escapeHtml(query)}</div>
+                        <div class="history-meta">${saved}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = `<div style="color:#ef4444;">Ошибка: ${err.message}</div>`;
+        }
+    }
+
+    // Просмотр деталей истории (в модалке)
+    function showHistoryDetail(entry) {
+        const modal = document.getElementById('artifactModal');
+        const contentDiv = document.getElementById('artifactContent');
+        contentDiv.textContent = JSON.stringify(entry, null, 2);
+        modal.style.display = 'block';
+    }
+
+    // Загрузка списка артефактов (/artifacts)
+    async function loadArtifacts() {
+        const container = document.getElementById('artifacts-list');
+        container.innerHTML = 'Загрузка...';
+        try {
+            const res = await fetch('/artifacts');
+            const data = await res.json();
+            if (!data.artifacts || data.artifacts.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8; text-align:center;">📦 Артефактов нет</p>';
+                return;
+            }
+            let html = '';
+            for (const item of data.artifacts) {
+                html += `
+                    <div class="artifact-item" onclick="viewArtifact('${item.file}')">
+                        <div class="artifact-filename">📄 ${item.file}</div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = `<div style="color:#ef4444;">Ошибка: ${err.message}</div>`;
+        }
+    }
+
+    // Просмотр конкретного артефакта (/artifact/{name})
+    async function viewArtifact(filename) {
+        const modal = document.getElementById('artifactModal');
+        const contentDiv = document.getElementById('artifactContent');
+        contentDiv.textContent = 'Загрузка...';
+        modal.style.display = 'block';
+        try {
+            const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
+            if (!res.ok) throw new Error('Не найден');
+            const data = await res.json();
+            contentDiv.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+            contentDiv.textContent = `Ошибка загрузки: ${err.message}`;
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('artifactModal').style.display = 'none';
+    }
+
+    // Утилита для экранирования HTML
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // При загрузке страницы загружаем историю и артефакты (неактивные вкладки, но данные кешируем)
+    window.onload = () => {
+        loadHistory();
+        loadArtifacts();
+    };
+
+    // Закрытие модалки по клику вне области
+    window.onclick = function(event) {
+        const modal = document.getElementById('artifactModal');
+        if (event.target === modal) closeModal();
+    };
+</script>
+</body>
+</html>
