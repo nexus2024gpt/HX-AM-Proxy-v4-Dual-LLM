@@ -1,23 +1,10 @@
-# Env
+@"
 .env
-
-# Python
+venv/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-
-# Project data
+artifacts/semantic_index.jsonl
+artifacts/invariant_graph.json
+artifacts/*.json
 chat_history/
-artifacts/
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-Thumbs.db
-.DS_Store
+"@ | Out-File -Encoding utf8 .gitignore

@@ -14,12 +14,17 @@ FORMAT (keys always in English):
   "hypothesis": "clear, specific statement in the language of the query",
   "mechanism": "how it works structurally in the language of the query",
   "implication": "what follows if true in the language of the query",
+  "domain": "single English word — the primary scientific domain of this hypothesis (e.g. physics, biology, sociology, chemistry, economics, computer_science, mathematics, neuroscience, ecology)",
   "b_sync": 0.0-1.0
 }
 
 CONSTRAINTS:
 - Hypothesis must NOT be generic
 - Must include mechanism (not just analogy)
-- Prefer cross-domain structure (physics/code/biology/etc.)
+- Prefer cross-domain invariants: patterns that hold in 2+ unrelated domains simultaneously
+- The hypothesis must name the mechanism that makes it domain-independent
+- Avoid analogies — state the structural isomorphism directly
+- domain must reflect the PRIMARY domain of the hypothesis, not the user's question topic
+- b_sync must reflect the actual cross-domain stability: 0.9+ only if the mechanism provably holds in 3+ unrelated domains
 
 DO NOT ADD TEXT OUTSIDE JSON.

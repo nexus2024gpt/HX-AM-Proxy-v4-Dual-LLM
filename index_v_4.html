@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HX-AM Proxy v4</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -18,121 +19,50 @@
         .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
 
         /* Tabs */
-        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #334155; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #334155; flex-wrap: wrap; }
         .tab-button {
-            background: transparent;
-            border: none;
-            color: #94a3b8;
-            padding: 0.75rem 1.5rem;
-            cursor: pointer;
-            font-size: 1rem;
-            font-family: inherit;
-            font-weight: 600;
-            transition: all 0.3s;
-            border-bottom: 3px solid transparent;
+            background: transparent; border: none; color: #94a3b8;
+            padding: 0.75rem 1.5rem; cursor: pointer;
+            font-size: 1rem; font-family: inherit; font-weight: 600;
+            transition: all 0.3s; border-bottom: 3px solid transparent;
         }
         .tab-button:hover { color: #e2e8f0; }
         .tab-button.active { color: #6366f1; border-bottom-color: #6366f1; }
-        
         .tab-content { display: none; animation: fadeIn 0.3s; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Query form */
         textarea {
-            width: 100%;
-            height: 120px;
-            background: #1e293b;
-            border: 2px solid #475569;
-            color: #fff;
-            padding: 1rem;
-            font-family: inherit;
-            font-size: 0.95rem;
-            resize: vertical;
-            border-radius: 8px;
+            width: 100%; height: 120px; background: #1e293b;
+            border: 2px solid #475569; color: #fff; padding: 1rem;
+            font-family: inherit; font-size: 0.95rem; resize: vertical; border-radius: 8px;
         }
         textarea:focus { outline: none; border-color: #6366f1; }
         .submit-btn {
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: #fff;
-            border: none;
-            padding: 0.75rem 2rem;
-            cursor: pointer;
-            margin: 1rem 0;
-            font-size: 1rem;
-            border-radius: 8px;
-            font-weight: 600;
+            color: #fff; border: none; padding: 0.75rem 2rem; cursor: pointer;
+            margin: 1rem 0; font-size: 1rem; border-radius: 8px; font-weight: 600;
             transition: transform 0.2s;
         }
         .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
         .submit-btn:disabled { background: #64748b; cursor: not-allowed; transform: none; }
-        .loading {
-            display: none;
-            color: #6366f1;
-            margin: 1rem 0;
-            padding: 1rem;
-            background: rgba(99,102,241,0.1);
-            border-radius: 8px;
-        }
+        .loading { display: none; color: #6366f1; margin: 1rem 0; padding: 1rem; background: rgba(99,102,241,0.1); border-radius: 8px; }
         .loading.active { display: block; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-        /* Result panels */
-        .pipeline {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-top: 1.5rem;
-        }
-        .panel {
-            flex: 1;
-            background: #1e293b;
-            border-radius: 12px;
-            border-left: 4px solid #6366f1;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .panel h3 {
-            background: #334155;
-            padding: 0.75rem;
-            margin: 0;
-            font-size: 1rem;
-            color: #cbd5e1;
-        }
-        .panel pre {
-            padding: 1rem;
-            margin: 0;
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: #e2e8f0;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .badge {
-            background: #4ade80;
-            color: #0f172a;
-            padding: 0.25rem 0.5rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            display: inline-block;
-            margin-left: 0.5rem;
-        }
+        /* Pipeline panels */
+        .pipeline { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; }
+        .panel { flex: 1; background: #1e293b; border-radius: 12px; border-left: 4px solid #6366f1; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .panel h3 { background: #334155; padding: 0.75rem; margin: 0; font-size: 1rem; color: #cbd5e1; }
+        .panel pre { padding: 1rem; margin: 0; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; color: #e2e8f0; max-height: 300px; overflow-y: auto; }
 
         /* History & Artifacts */
-        .history-list, .artifacts-list {
-            max-height: 600px;
-            overflow-y: auto;
-        }
+        .history-list, .artifacts-list { max-height: 600px; overflow-y: auto; }
         .history-item, .artifact-item {
-            background: #1e293b;
-            padding: 0.75rem;
-            margin-bottom: 0.75rem;
-            border-radius: 8px;
-            border-left: 3px solid #475569;
-            cursor: pointer;
-            transition: border-left-color 0.2s;
+            background: #1e293b; padding: 0.75rem; margin-bottom: 0.75rem;
+            border-radius: 8px; border-left: 3px solid #475569;
+            cursor: pointer; transition: border-left-color 0.2s;
         }
         .history-item:hover, .artifact-item:hover { border-left-color: #6366f1; background: #2d3a52; }
         .history-timestamp { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.25rem; }
@@ -140,46 +70,143 @@
         .history-meta { font-size: 0.7rem; color: #4ade80; }
         .artifact-filename { font-family: monospace; color: #fbbf24; }
 
-        .refresh-btn {
-            background: #475569;
-            color: #fff;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-bottom: 1rem;
-        }
+        .refresh-btn { background: #475569; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
         .refresh-btn:hover { background: #64748b; }
 
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.8);
-        }
-        .modal-content {
-            background: #1e293b;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #6366f1;
+        /* ═══ GRAPH TAB ═══ */
+        .graph-layout { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; height: 620px; }
+        
+        #graph-container {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
             border-radius: 12px;
-            width: 80%;
-            max-width: 900px;
-            max-height: 80%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #graph-svg { width: 100%; height: 100%; }
+
+        /* Node styles via CSS */
+        .node circle {
+            stroke-width: 2px;
+            cursor: grab;
+            transition: r 0.2s;
+            filter: drop-shadow(0 0 6px currentColor);
+        }
+        .node circle:active { cursor: grabbing; }
+        .node text {
+            font-size: 9px;
+            fill: #94a3b8;
+            pointer-events: none;
+            user-select: none;
+        }
+        .node.hovered circle { stroke-width: 3.5px; }
+
+        .link {
+            stroke-opacity: 0.6;
+            stroke-linecap: round;
+        }
+
+        /* Graph controls */
+        .graph-controls {
+            position: absolute;
+            top: 12px; right: 12px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .graph-btn {
+            background: rgba(30,41,59,0.9);
+            border: 1px solid #334155;
+            color: #94a3b8;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .graph-btn:hover { background: #334155; color: #e2e8f0; }
+
+        /* Sidebar */
+        .graph-sidebar {
+            display: flex; flex-direction: column; gap: 1rem;
             overflow-y: auto;
         }
-        .close {
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #aaa;
+
+        .graph-stats {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 1rem;
+            border: 1px solid #334155;
         }
+        .graph-stats h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid #1e3a5f; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: #64748b; font-size: 0.8rem; }
+        .stat-value { color: #e2e8f0; font-weight: bold; font-size: 0.85rem; }
+
+        /* Legend */
+        .graph-legend {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 1rem;
+            border: 1px solid #334155;
+        }
+        .graph-legend h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+        .legend-item { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #94a3b8; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .legend-line { width: 20px; height: 3px; flex-shrink: 0; border-radius: 2px; }
+
+        /* Node detail panel */
+        .node-detail {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 1rem;
+            border: 1px solid #334155;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+        .node-detail h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+        .node-detail-empty { color: #475569; font-size: 0.8rem; font-style: italic; }
+        .detail-field { margin-bottom: 0.6rem; }
+        .detail-key { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+        .detail-val { font-size: 0.8rem; color: #e2e8f0; word-break: break-all; }
+        .detail-badge {
+            display: inline-block; padding: 0.15rem 0.5rem;
+            border-radius: 20px; font-size: 0.7rem; font-weight: bold;
+        }
+
+        /* Graph empty state */
+        .graph-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; color: #475569; text-align: center; gap: 0.5rem;
+        }
+        .graph-empty-icon { font-size: 3rem; }
+
+        /* Tooltip */
+        #graph-tooltip {
+            position: fixed;
+            background: rgba(15,23,42,0.95);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 0.6rem 0.9rem;
+            font-size: 0.78rem;
+            color: #e2e8f0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 9999;
+            max-width: 260px;
+        }
+        #graph-tooltip.visible { opacity: 1; }
+        #graph-tooltip .tip-id { color: #fbbf24; font-weight: bold; margin-bottom: 0.25rem; }
+        #graph-tooltip .tip-row { color: #94a3b8; margin: 0.1rem 0; }
+        #graph-tooltip .tip-row span { color: #e2e8f0; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background: #1e293b; margin: 5% auto; padding: 20px; border: 1px solid #6366f1; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80%; overflow-y: auto; }
+        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #aaa; }
         .close:hover { color: #fff; }
         pre { white-space: pre-wrap; word-wrap: break-word; }
     </style>
@@ -187,210 +214,469 @@
 <body>
 <div class="container">
     <h1>🔮 HX-AM Proxy v4</h1>
-    <p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Хранение истории и артефактов</p>
+    <p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | Graph</p>
 
     <div class="tabs">
-        <button class="tab-button active" onclick="switchTab('query')">💬 Запрос</button>
-        <button class="tab-button" onclick="switchTab('history')">📜 История</button>
-        <button class="tab-button" onclick="switchTab('artifacts')">📦 Артефакты</button>
+        <button class="tab-button active" onclick="switchTab('query', this)">💬 Запрос</button>
+        <button class="tab-button" onclick="switchTab('graph', this)">🕸️ Граф</button>
+        <button class="tab-button" onclick="switchTab('history', this)">📜 История</button>
+        <button class="tab-button" onclick="switchTab('artifacts', this)">📦 Артефакты</button>
     </div>
 
-    <!-- Вкладка Запрос -->
+    <!-- Запрос -->
     <div id="query-tab" class="tab-content active">
-        <textarea id="queryText" placeholder="Введите ваш запрос...&#10;Пример: Что такое LLM? Объясни коротко."></textarea>
+        <textarea id="queryText" placeholder="Введите запрос..."></textarea>
         <button class="submit-btn" id="submitBtn" onclick="sendQuery()">🚀 Отправить</button>
-        <div id="loading" class="loading">⏳ Генерация и верификация... (до 10 секунд)</div>
+        <div id="loading" class="loading">⏳ Генерация и верификация...</div>
         <div id="pipeline" class="pipeline"></div>
     </div>
 
-    <!-- Вкладка История -->
+    <!-- Граф -->
+    <div id="graph-tab" class="tab-content">
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+            <button class="refresh-btn" onclick="loadGraph()">🔄 Обновить граф</button>
+            <span id="graph-phase-badge" style="font-size:0.8rem; color:#94a3b8;"></span>
+        </div>
+        <div class="graph-layout">
+            <div id="graph-container">
+                <svg id="graph-svg"></svg>
+                <div class="graph-controls">
+                    <button class="graph-btn" onclick="zoomIn()" title="Приблизить">＋</button>
+                    <button class="graph-btn" onclick="zoomOut()" title="Отдалить">－</button>
+                    <button class="graph-btn" onclick="resetZoom()" title="Сбросить">⌂</button>
+                </div>
+                <div id="graph-empty" class="graph-empty" style="display:none;">
+                    <div class="graph-empty-icon">🕸️</div>
+                    <div>Граф пуст</div>
+                    <div style="font-size:0.75rem;">Отправьте несколько запросов — узлы появятся здесь</div>
+                </div>
+            </div>
+
+            <div class="graph-sidebar">
+                <div class="graph-stats" id="graph-stats">
+                    <h4>📊 Статистика</h4>
+                    <div class="stat-row"><span class="stat-label">Узлов</span><span class="stat-value" id="stat-nodes">—</span></div>
+                    <div class="stat-row"><span class="stat-label">Рёбер</span><span class="stat-value" id="stat-edges">—</span></div>
+                    <div class="stat-row"><span class="stat-label">Кластеров</span><span class="stat-value" id="stat-clusters">—</span></div>
+                    <div class="stat-row"><span class="stat-label">Мостов</span><span class="stat-value" id="stat-bridges">—</span></div>
+                </div>
+
+                <div class="graph-legend">
+                    <h4>🎨 Легенда</h4>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;">Тип узла</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#4ade80;"></div> stable_cluster</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> hyx-portal / bridge</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> weak_pattern</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> noise / isolated</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin:0.75rem 0 0.5rem;">Вес рёбер</div>
+                    <div class="legend-item"><div class="legend-line" style="background:#6366f1; opacity:1;"></div> высокий weight</div>
+                    <div class="legend-item"><div class="legend-line" style="background:#475569; opacity:0.5;"></div> низкий weight</div>
+                </div>
+
+                <div class="node-detail" id="node-detail">
+                    <h4>🔍 Узел</h4>
+                    <div class="node-detail-empty">Нажмите на узел для просмотра деталей</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- История -->
     <div id="history-tab" class="tab-content">
-        <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить историю</button>
+        <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить</button>
         <div id="history-list" class="history-list">Загрузка...</div>
     </div>
 
-    <!-- Вкладка Артефакты -->
+    <!-- Артефакты -->
     <div id="artifacts-tab" class="tab-content">
-        <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить артефакты</button>
+        <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
         <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
     </div>
 </div>
 
-<!-- Модальное окно для просмотра артефакта -->
+<!-- Tooltip -->
+<div id="graph-tooltip"></div>
+
+<!-- Modal -->
 <div id="artifactModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
-        <h2>📄 Артефакт</h2>
+        <h2>📄 Детали</h2>
         <pre id="artifactContent">Загрузка...</pre>
     </div>
 </div>
 
 <script>
-    // Переключение вкладок
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.getElementById(tabName + '-tab').classList.add('active');
-        if (tabName === 'history') loadHistory();
-        if (tabName === 'artifacts') loadArtifacts();
-    }
+// ══════════════════════════════════════
+// TABS
+// ══════════════════════════════════════
+function switchTab(tabName, btn) {
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabName + '-tab').classList.add('active');
+    if (tabName === 'history') loadHistory();
+    if (tabName === 'artifacts') loadArtifacts();
+    if (tabName === 'graph') loadGraph();
+}
 
-    // Отправка запроса
-    async function sendQuery() {
-        const text = document.getElementById('queryText').value.trim();
-        if (!text) return;
-
-        const submitBtn = document.getElementById('submitBtn');
-        const loadingDiv = document.getElementById('loading');
-        const pipelineDiv = document.getElementById('pipeline');
-
-        submitBtn.disabled = true;
-        loadingDiv.classList.add('active');
-        pipelineDiv.innerHTML = '';
-
-        try {
-            const response = await fetch('/query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text, domain: 'general', x_coordinate: 500 })
-            });
-            const data = await response.json();
-
-            // Отображаем три панели: генерация, верификация, решение
-            let html = `
-                <div class="panel">
-                    <h3>⚙️ Генератор (Groq)</h3>
-                    <pre>${JSON.stringify(data.generation, null, 2)}</pre>
-                </div>
-                <div class="panel">
-                    <h3>🔍 Верификатор (Gemini)</h3>
-                    <pre>${JSON.stringify(data.verification, null, 2)}</pre>
-                </div>
-                <div class="panel">
-                    <h3>✅ Решение</h3>
-                    <pre>Сохранён: ${data.saved ? 'ДА' : 'НЕТ'}\nАртефакт: ${data.artifact || '—'}</pre>
-                </div>
-            `;
-            pipelineDiv.innerHTML = html;
-
-            // Если артефакт сохранён, обновляем список артефактов (если вкладка активна)
-            if (data.saved && data.artifact) {
-                const activeTab = document.querySelector('.tab-button.active').innerText;
-                if (activeTab.includes('Артефакты')) loadArtifacts();
-            }
-        } catch (err) {
-            pipelineDiv.innerHTML = `<div class="error" style="color:#ef4444; background:#1e293b; padding:1rem; border-radius:8px;">❌ Ошибка: ${err.message}</div>`;
-        } finally {
-            submitBtn.disabled = false;
-            loadingDiv.classList.remove('active');
-        }
-    }
-
-    // Загрузка истории (эндпоинт /history)
-    async function loadHistory() {
-        const container = document.getElementById('history-list');
-        container.innerHTML = 'Загрузка...';
-        try {
-            const res = await fetch('/history');
-            const data = await res.json();
-            if (!data.history || data.history.length === 0) {
-                container.innerHTML = '<p style="color:#94a3b8; text-align:center;">📭 История пуста</p>';
-                return;
-            }
-            let html = '';
-            data.history.forEach(entry => {
-                const time = new Date(entry.time * 1000).toLocaleString('ru-RU');
-                const query = entry.query.substring(0, 120) + (entry.query.length > 120 ? '…' : '');
-                const saved = entry.saved ? '✅ сохранён' : '❌ не сохранён';
-                html += `
-                    <div class="history-item" onclick="showHistoryDetail(${JSON.stringify(entry).replace(/"/g, '&quot;')})">
-                        <div class="history-timestamp">🕐 ${time}</div>
-                        <div class="history-query">${escapeHtml(query)}</div>
-                        <div class="history-meta">${saved}</div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-        } catch (err) {
-            container.innerHTML = `<div style="color:#ef4444;">Ошибка: ${err.message}</div>`;
-        }
-    }
-
-    // Просмотр деталей истории (в модалке)
-    function showHistoryDetail(entry) {
-        const modal = document.getElementById('artifactModal');
-        const contentDiv = document.getElementById('artifactContent');
-        contentDiv.textContent = JSON.stringify(entry, null, 2);
-        modal.style.display = 'block';
-    }
-
-    // Загрузка списка артефактов (/artifacts)
-    async function loadArtifacts() {
-        const container = document.getElementById('artifacts-list');
-        container.innerHTML = 'Загрузка...';
-        try {
-            const res = await fetch('/artifacts');
-            const data = await res.json();
-            if (!data.artifacts || data.artifacts.length === 0) {
-                container.innerHTML = '<p style="color:#94a3b8; text-align:center;">📦 Артефактов нет</p>';
-                return;
-            }
-            let html = '';
-            for (const item of data.artifacts) {
-                html += `
-                    <div class="artifact-item" onclick="viewArtifact('${item.file}')">
-                        <div class="artifact-filename">📄 ${item.file}</div>
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-        } catch (err) {
-            container.innerHTML = `<div style="color:#ef4444;">Ошибка: ${err.message}</div>`;
-        }
-    }
-
-    // Просмотр конкретного артефакта (/artifact/{name})
-    async function viewArtifact(filename) {
-        const modal = document.getElementById('artifactModal');
-        const contentDiv = document.getElementById('artifactContent');
-        contentDiv.textContent = 'Загрузка...';
-        modal.style.display = 'block';
-        try {
-            const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
-            if (!res.ok) throw new Error('Не найден');
-            const data = await res.json();
-            contentDiv.textContent = JSON.stringify(data, null, 2);
-        } catch (err) {
-            contentDiv.textContent = `Ошибка загрузки: ${err.message}`;
-        }
-    }
-
-    function closeModal() {
-        document.getElementById('artifactModal').style.display = 'none';
-    }
-
-    // Утилита для экранирования HTML
-    function escapeHtml(str) {
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
+// ══════════════════════════════════════
+// QUERY
+// ══════════════════════════════════════
+async function sendQuery() {
+    const text = document.getElementById('queryText').value.trim();
+    if (!text) return;
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingDiv = document.getElementById('loading');
+    const pipelineDiv = document.getElementById('pipeline');
+    submitBtn.disabled = true;
+    loadingDiv.classList.add('active');
+    pipelineDiv.innerHTML = '';
+    try {
+        const response = await fetch('/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, domain: 'general', x_coordinate: 500 })
         });
+        const data = await response.json();
+        const s = data.structural || {};
+        const typeColor = { 'hyx-artifact': '#4ade80', 'hyx-portal': '#6366f1', 'weak_pattern': '#f59e0b', 'noise': '#ef4444', 'sigma_primitive_candidate': '#22d3ee' };
+        const tc = typeColor[s.artifact_type] || '#94a3b8';
+        pipelineDiv.innerHTML = `
+            <div class="panel">
+                <h3>⚙️ Генератор · domain: <b style="color:#fbbf24">${data.domain || '—'}</b></h3>
+                <pre>${JSON.stringify(data.generation, null, 2)}</pre>
+            </div>
+            <div class="panel">
+                <h3>🔍 Верификатор</h3>
+                <pre>${JSON.stringify(data.verification, null, 2)}</pre>
+            </div>
+            <div class="panel">
+                <h3>✅ Структура</h3>
+                <pre>Тип: <span style="color:${tc}">${s.artifact_type || '—'}</span>
+Stability: ${s.stability || '—'}
+Centrality: ${s.centrality ?? '—'}
+Bridge: ${s.is_bridge ? 'ДА' : 'нет'}
+Similar: ${(s.similar_invariants || []).length}
+Phase: ${s.phase_signal?.signal || '—'}
+Сохранён: ${data.saved ? 'ДА' : 'НЕТ'}</pre>
+            </div>`;
+    } catch (err) {
+        pipelineDiv.innerHTML = `<div style="color:#ef4444;padding:1rem;">❌ ${err.message}</div>`;
+    } finally {
+        submitBtn.disabled = false;
+        loadingDiv.classList.remove('active');
     }
+}
 
-    // При загрузке страницы загружаем историю и артефакты (неактивные вкладки, но данные кешируем)
-    window.onload = () => {
-        loadHistory();
-        loadArtifacts();
-    };
+// ══════════════════════════════════════
+// HISTORY & ARTIFACTS
+// ══════════════════════════════════════
+async function loadHistory() {
+    const container = document.getElementById('history-list');
+    container.innerHTML = 'Загрузка...';
+    try {
+        const res = await fetch('/history');
+        const data = await res.json();
+        if (!data.history?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>'; return; }
+        container.innerHTML = data.history.map(e => {
+            const time = new Date(e.time * 1000).toLocaleString('ru-RU');
+            const q = (e.query || '').substring(0, 120);
+            return `<div class="history-item" onclick='showDetail(${JSON.stringify(e)})'>
+                <div class="history-timestamp">🕐 ${time}</div>
+                <div class="history-query">${escapeHtml(q)}</div>
+                <div class="history-meta">${e.saved ? '✅ сохранён' : '❌ не сохранён'} · ${e.domain || 'general'}</div>
+            </div>`;
+        }).join('');
+    } catch (err) { container.innerHTML = `<div style="color:#ef4444;">${err.message}</div>`; }
+}
 
-    // Закрытие модалки по клику вне области
-    window.onclick = function(event) {
-        const modal = document.getElementById('artifactModal');
-        if (event.target === modal) closeModal();
-    };
+async function loadArtifacts() {
+    const container = document.getElementById('artifacts-list');
+    container.innerHTML = 'Загрузка...';
+    try {
+        const res = await fetch('/artifacts');
+        const data = await res.json();
+        if (!data.artifacts?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>'; return; }
+        container.innerHTML = data.artifacts.map(item =>
+            `<div class="artifact-item" onclick="viewArtifact('${item.file}')"><div class="artifact-filename">📄 ${item.file}</div></div>`
+        ).join('');
+    } catch (err) { container.innerHTML = `<div style="color:#ef4444;">${err.message}</div>`; }
+}
+
+async function viewArtifact(filename) {
+    showModal('Загрузка...');
+    try {
+        const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
+        if (!res.ok) throw new Error('Не найден');
+        const data = await res.json();
+        document.getElementById('artifactContent').textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+        document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`;
+    }
+}
+
+function showDetail(entry) { showModal(JSON.stringify(entry, null, 2)); }
+function showModal(text) {
+    document.getElementById('artifactContent').textContent = text;
+    document.getElementById('artifactModal').style.display = 'block';
+}
+function closeModal() { document.getElementById('artifactModal').style.display = 'none'; }
+window.onclick = e => { if (e.target === document.getElementById('artifactModal')) closeModal(); };
+
+// ══════════════════════════════════════
+// D3 GRAPH
+// ══════════════════════════════════════
+let graphSvg, graphSim, zoomBehavior;
+
+const NODE_COLORS = {
+    stable_cluster: '#4ade80',
+    'hyx-portal':   '#6366f1',
+    weak_pattern:   '#f59e0b',
+    noise:          '#ef4444',
+    isolated:       '#ef4444',
+    mixed_patterns: '#f59e0b',
+    sigma_primitive_candidate: '#22d3ee',
+    unknown:        '#94a3b8',
+};
+
+function getNodeColor(node) {
+    if (node.is_bridge) return NODE_COLORS['hyx-portal'];
+    return NODE_COLORS[node.stability] || NODE_COLORS.unknown;
+}
+
+function getNodeRadius(node) {
+    const base = 10;
+    const bBonus = (node.b_sync || 0) * 8;
+    return base + bBonus;
+}
+
+async function loadGraph() {
+    try {
+        // Фазовый сигнал
+        const phaseRes = await fetch('/phase');
+        const phase = await phaseRes.json();
+        const badge = document.getElementById('graph-phase-badge');
+        if (phase.signal === 'sigma_primitive_candidate') {
+            badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density}`;
+            badge.style.color = '#22d3ee';
+        } else {
+            badge.textContent = `Phase: ${phase.signal} · density=${phase.density}`;
+            badge.style.color = '#64748b';
+        }
+
+        // Данные графа
+        const res = await fetch('/graph/data');
+        const data = await res.json();
+
+        // Статистика
+        document.getElementById('stat-nodes').textContent = data.meta.total_nodes;
+        document.getElementById('stat-edges').textContent = data.meta.total_edges;
+        document.getElementById('stat-clusters').textContent = data.meta.cluster_count;
+        document.getElementById('stat-bridges').textContent = data.meta.bridge_count;
+
+        const empty = document.getElementById('graph-empty');
+        if (!data.nodes.length) { empty.style.display = 'flex'; return; }
+        empty.style.display = 'none';
+
+        renderGraph(data);
+    } catch (err) {
+        console.error('Graph load error:', err);
+    }
+}
+
+function renderGraph(data) {
+    const container = document.getElementById('graph-container');
+    const svg = d3.select('#graph-svg');
+    svg.selectAll('*').remove();
+
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+
+    // Zoom
+    zoomBehavior = d3.zoom()
+        .scaleExtent([0.2, 5])
+        .on('zoom', e => g.attr('transform', e.transform));
+
+    svg.call(zoomBehavior);
+
+    const g = svg.append('g');
+
+    // Defs: arrow marker (не используем стрелки, но оставим glow filter)
+    const defs = svg.append('defs');
+    const filter = defs.append('filter').attr('id', 'glow');
+    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+    const feMerge = filter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Nodes index for simulation
+    const nodeById = {};
+    data.nodes.forEach(n => nodeById[n.id] = n);
+
+    // Links
+    const links = data.links.map(l => ({
+        ...l,
+        source: nodeById[l.source] || l.source,
+        target: nodeById[l.target] || l.target,
+    }));
+
+    // Force simulation
+    graphSim = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(d => 120 - (d.weight || 0) * 60))
+        .force('charge', d3.forceManyBody().strength(-220))
+        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 8));
+
+    // Draw edges
+    const maxWeight = d3.max(data.links, d => d.weight) || 1;
+    const link = g.append('g').attr('class', 'links')
+        .selectAll('line')
+        .data(links)
+        .enter().append('line')
+        .attr('class', 'link')
+        .attr('stroke', d => {
+            const norm = d.weight / maxWeight;
+            return d3.interpolateRgb('#1e3a5f', '#6366f1')(norm);
+        })
+        .attr('stroke-width', d => 1 + (d.weight / maxWeight) * 3)
+        .attr('stroke-opacity', d => 0.3 + (d.weight / maxWeight) * 0.6);
+
+    // Draw edge weight labels (only if weight > 0)
+    const linkLabels = g.append('g').attr('class', 'link-labels')
+        .selectAll('text')
+        .data(links.filter(d => d.weight > 0))
+        .enter().append('text')
+        .attr('font-size', '8px')
+        .attr('fill', '#475569')
+        .attr('text-anchor', 'middle')
+        .text(d => d.weight.toFixed(2));
+
+    // Draw nodes
+    const tooltip = document.getElementById('graph-tooltip');
+    const node = g.append('g').attr('class', 'nodes')
+        .selectAll('.node')
+        .data(data.nodes)
+        .enter().append('g')
+        .attr('class', 'node')
+        .call(d3.drag()
+            .on('start', (event, d) => {
+                if (!event.active) graphSim.alphaTarget(0.3).restart();
+                d.fx = d.x; d.fy = d.y;
+            })
+            .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+            .on('end', (event, d) => {
+                if (!event.active) graphSim.alphaTarget(0);
+                d.fx = null; d.fy = null;
+            })
+        )
+        .on('mouseover', (event, d) => {
+            tooltip.innerHTML = `
+                <div class="tip-id">${d.id}</div>
+                <div class="tip-row">domain: <span>${d.domain}</span></div>
+                <div class="tip-row">b_sync: <span>${d.b_sync}</span></div>
+                <div class="tip-row">stability: <span>${d.stability}</span></div>
+                <div class="tip-row">bridge: <span>${d.is_bridge ? 'ДА' : 'нет'}</span></div>
+            `;
+            tooltip.classList.add('visible');
+        })
+        .on('mousemove', (event) => {
+            tooltip.style.left = (event.clientX + 14) + 'px';
+            tooltip.style.top = (event.clientY - 10) + 'px';
+        })
+        .on('mouseout', () => tooltip.classList.remove('visible'))
+        .on('click', (event, d) => showNodeDetail(d));
+
+    node.append('circle')
+        .attr('r', d => getNodeRadius(d))
+        .attr('fill', d => getNodeColor(d) + '33')   // прозрачная заливка
+        .attr('stroke', d => getNodeColor(d))
+        .style('filter', 'url(#glow)')
+        .style('color', d => getNodeColor(d));
+
+    // Bridge ring
+    node.filter(d => d.is_bridge)
+        .append('circle')
+        .attr('r', d => getNodeRadius(d) + 5)
+        .attr('fill', 'none')
+        .attr('stroke', '#6366f1')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+        .attr('opacity', 0.6);
+
+    node.append('text')
+        .attr('dy', d => getNodeRadius(d) + 12)
+        .attr('text-anchor', 'middle')
+        .text(d => d.id.substring(0, 8));
+
+    // Tick
+    graphSim.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        linkLabels
+            .attr('x', d => (d.source.x + d.target.x) / 2)
+            .attr('y', d => (d.source.y + d.target.y) / 2 - 4);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    graphSvg = svg;
+}
+
+function showNodeDetail(d) {
+    const panel = document.getElementById('node-detail');
+    const typeColor = NODE_COLORS[d.stability] || '#94a3b8';
+    panel.innerHTML = `
+        <h4>🔍 Узел</h4>
+        <div class="detail-field">
+            <div class="detail-key">ID</div>
+            <div class="detail-val" style="color:#fbbf24">${d.id}</div>
+        </div>
+        <div class="detail-field">
+            <div class="detail-key">Domain</div>
+            <div class="detail-val">${d.domain}</div>
+        </div>
+        <div class="detail-field">
+            <div class="detail-key">B_sync</div>
+            <div class="detail-val">${d.b_sync}</div>
+        </div>
+        <div class="detail-field">
+            <div class="detail-key">Stability</div>
+            <div class="detail-val">
+                <span class="detail-badge" style="background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}66">${d.stability}</span>
+            </div>
+        </div>
+        <div class="detail-field">
+            <div class="detail-key">Cluster</div>
+            <div class="detail-val">${d.cluster >= 0 ? '#' + d.cluster : 'изолирован'}</div>
+        </div>
+        <div class="detail-field">
+            <div class="detail-key">Bridge</div>
+            <div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div>
+        </div>
+        <div style="margin-top:0.75rem;">
+            <button class="refresh-btn" style="font-size:0.75rem;padding:0.35rem 0.75rem;" 
+                onclick="viewArtifact('${d.id}.json'); showModal('Загрузка...')">
+                📄 Открыть артефакт
+            </button>
+        </div>
+    `;
+}
+
+// Zoom controls
+function zoomIn()    { graphSvg && graphSvg.transition().call(zoomBehavior.scaleBy, 1.4); }
+function zoomOut()   { graphSvg && graphSvg.transition().call(zoomBehavior.scaleBy, 0.7); }
+function resetZoom() { graphSvg && graphSvg.transition().call(zoomBehavior.transform, d3.zoomIdentity); }
+
+function escapeHtml(str) {
+    return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+}
+
+window.onload = () => { loadHistory(); loadArtifacts(); };
 </script>
 </body>
 </html>

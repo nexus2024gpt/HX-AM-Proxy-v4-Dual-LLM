@@ -3,3 +3,8 @@ uvicorn
 python-dotenv
 requests
 pydantic
+sentence-transformers
+networkx
+numpy
+scipy
+jsonlines
