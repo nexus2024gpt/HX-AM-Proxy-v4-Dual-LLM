@@ -1,679 +1,550 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HX-AM Proxy v4</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Courier New', monospace;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #e2e8f0;
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .container { max-width: 1300px; margin: 0 auto; }
-        h1 { color: #6366f1; margin-bottom: 0.5rem; font-size: 2rem; }
-        .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HX-AM Proxy v4</title>
+<script src="https://unpkg.com/3d-force-graph@1.70.10/dist/3d-force-graph.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#e2e8f0;padding:2rem;min-height:100vh}
+.container{max-width:1400px;margin:0 auto}
+h1{color:#6366f1;margin-bottom:.5rem;font-size:2rem}
+.subtitle{color:#94a3b8;margin-bottom:2rem;font-size:.9rem}
 
-        /* Tabs */
-        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #334155; flex-wrap: wrap; }
-        .tab-button {
-            background: transparent; border: none; color: #94a3b8;
-            padding: 0.75rem 1.5rem; cursor: pointer;
-            font-size: 1rem; font-family: inherit; font-weight: 600;
-            transition: all 0.3s; border-bottom: 3px solid transparent;
-        }
-        .tab-button:hover { color: #e2e8f0; }
-        .tab-button.active { color: #6366f1; border-bottom-color: #6366f1; }
-        .tab-content { display: none; animation: fadeIn 0.3s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+/* Tabs */
+.tabs{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:2px solid #334155;flex-wrap:wrap}
+.tab-button{background:transparent;border:none;color:#94a3b8;padding:.75rem 1.5rem;cursor:pointer;font-size:1rem;font-family:inherit;font-weight:600;transition:all .3s;border-bottom:3px solid transparent}
+.tab-button:hover{color:#e2e8f0}
+.tab-button.active{color:#6366f1;border-bottom-color:#6366f1}
+.tab-content{display:none;animation:fadeIn .3s}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-        /* Query form */
-        textarea {
-            width: 100%; height: 120px; background: #1e293b;
-            border: 2px solid #475569; color: #fff; padding: 1rem;
-            font-family: inherit; font-size: 0.95rem; resize: vertical; border-radius: 8px;
-        }
-        textarea:focus { outline: none; border-color: #6366f1; }
-        .submit-btn {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: #fff; border: none; padding: 0.75rem 2rem; cursor: pointer;
-            margin: 1rem 0; font-size: 1rem; border-radius: 8px; font-weight: 600;
-            transition: transform 0.2s;
-        }
-        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
-        .submit-btn:disabled { background: #64748b; cursor: not-allowed; transform: none; }
-        .loading { display: none; color: #6366f1; margin: 1rem 0; padding: 1rem; background: rgba(99,102,241,0.1); border-radius: 8px; }
-        .loading.active { display: block; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+/* Query */
+textarea{width:100%;height:120px;background:#1e293b;border:2px solid #475569;color:#fff;padding:1rem;font-family:inherit;font-size:.95rem;resize:vertical;border-radius:8px;transition:border-color .2s}
+textarea:focus{outline:none;border-color:#6366f1}
 
-        /* Pipeline panels */
-        .pipeline { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; }
-        .panel { flex: 1; background: #1e293b; border-radius: 12px; border-left: 4px solid #6366f1; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .panel h3 { background: #334155; padding: 0.75rem; margin: 0; font-size: 1rem; color: #cbd5e1; }
-        .panel pre { padding: 1rem; margin: 0; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; color: #e2e8f0; max-height: 300px; overflow-y: auto; }
+/* RAG context block */
+#rag-block{display:none;background:rgba(99,102,241,.07);border:1px solid #6366f133;border-radius:10px;padding:1rem;margin:.75rem 0;position:relative}
+#rag-block.visible{display:block;animation:fadeIn .3s}
+.rag-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.rag-item{background:#1e293b;border-radius:6px;padding:.5rem .75rem;margin-bottom:.4rem;border-left:3px solid #6366f1;font-size:.8rem}
+.rag-item:last-child{margin-bottom:0}
+.rag-domain{display:inline-block;background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .4rem;font-size:.7rem;margin-bottom:.25rem}
+.rag-sim{float:right;color:#64748b;font-size:.7rem}
+.rag-text{color:#cbd5e1;line-height:1.4}
+.rag-empty{color:#475569;font-size:.8rem;font-style:italic}
 
-        /* History & Artifacts */
-        .history-list, .artifacts-list { max-height: 600px; overflow-y: auto; }
-        .history-item, .artifact-item {
-            background: #1e293b; padding: 0.75rem; margin-bottom: 0.75rem;
-            border-radius: 8px; border-left: 3px solid #475569;
-            cursor: pointer; transition: border-left-color 0.2s;
-        }
-        .history-item:hover, .artifact-item:hover { border-left-color: #6366f1; background: #2d3a52; }
-        .history-timestamp { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.25rem; }
-        .history-query { font-weight: bold; margin-bottom: 0.25rem; }
-        .history-meta { font-size: 0.7rem; color: #4ade80; }
-        .artifact-filename { font-family: monospace; color: #fbbf24; }
+.submit-btn{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);color:#fff;border:none;padding:.75rem 2rem;cursor:pointer;margin:.75rem 0;font-size:1rem;border-radius:8px;font-weight:600;transition:transform .2s}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(99,102,241,.4)}
+.submit-btn:disabled{background:#64748b;cursor:not-allowed;transform:none}
+.loading{display:none;color:#6366f1;margin:1rem 0;padding:1rem;background:rgba(99,102,241,.1);border-radius:8px}
+.loading.active{display:block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
-        .refresh-btn { background: #475569; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
-        .refresh-btn:hover { background: #64748b; }
+/* Pipeline */
+.pipeline{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1.5rem}
+.panel{flex:1;min-width:280px;background:#1e293b;border-radius:12px;border-left:4px solid #6366f1;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.3)}
+.panel h3{background:#334155;padding:.75rem;margin:0;font-size:1rem;color:#cbd5e1}
+.panel pre{padding:1rem;margin:0;font-size:.85rem;white-space:pre-wrap;word-wrap:break-word;color:#e2e8f0;max-height:300px;overflow-y:auto}
 
-        /* ═══ GRAPH TAB ═══ */
-        .graph-layout { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; height: 620px; }
-        
-        #graph-container {
-            background: #0d1b2a;
-            border: 1px solid #1e3a5f;
-            border-radius: 12px;
-            position: relative;
-            overflow: hidden;
-        }
+/* History & Artifacts */
+.history-list,.artifacts-list{max-height:600px;overflow-y:auto}
+.history-item,.artifact-item{background:#1e293b;padding:.75rem;margin-bottom:.75rem;border-radius:8px;border-left:3px solid #475569;cursor:pointer;transition:all .2s}
+.history-item:hover,.artifact-item:hover{border-left-color:#6366f1;background:#2d3a52}
+.history-timestamp{font-size:.7rem;color:#94a3b8;margin-bottom:.25rem}
+.history-query{font-weight:bold;margin-bottom:.25rem;font-size:.9rem}
+.history-meta{font-size:.7rem;color:#4ade80}
+.artifact-filename{font-family:monospace;color:#fbbf24}
 
-        #graph-svg { width: 100%; height: 100%; }
+.refresh-btn{background:#475569;color:#fff;border:none;padding:.5rem 1rem;border-radius:6px;cursor:pointer;margin-bottom:1rem}
+.refresh-btn:hover{background:#64748b}
 
-        /* Node styles via CSS */
-        .node circle {
-            stroke-width: 2px;
-            cursor: grab;
-            transition: r 0.2s;
-            filter: drop-shadow(0 0 6px currentColor);
-        }
-        .node circle:active { cursor: grabbing; }
-        .node text {
-            font-size: 9px;
-            fill: #94a3b8;
-            pointer-events: none;
-            user-select: none;
-        }
-        .node.hovered circle { stroke-width: 3.5px; }
+/* ═══ GRAPH TAB ═══ */
+.graph-toolbar{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.graph-layout{display:grid;grid-template-columns:1fr 300px;gap:1rem;height:680px}
 
-        .link {
-            stroke-opacity: 0.6;
-            stroke-linecap: round;
-        }
+#graph-container{background:#060d18;border:1px solid #1e3a5f;border-radius:12px;position:relative;overflow:hidden}
 
-        /* Graph controls */
-        .graph-controls {
-            position: absolute;
-            top: 12px; right: 12px;
-            display: flex; flex-direction: column; gap: 6px;
-        }
-        .graph-btn {
-            background: rgba(30,41,59,0.9);
-            border: 1px solid #334155;
-            color: #94a3b8;
-            width: 32px; height: 32px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s;
-        }
-        .graph-btn:hover { background: #334155; color: #e2e8f0; }
+/* Graph sidebar */
+.graph-sidebar{display:flex;flex-direction:column;gap:.75rem;overflow-y:auto}
+.graph-stats{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
+.graph-stats h4,.graph-legend h4,.node-detail h4{color:#6366f1;font-size:.8rem;margin-bottom:.75rem;letter-spacing:.06em;text-transform:uppercase}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid #1e3a5f}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:#64748b;font-size:.78rem}
+.stat-value{color:#e2e8f0;font-weight:bold;font-size:.82rem}
 
-        /* Sidebar */
-        .graph-sidebar {
-            display: flex; flex-direction: column; gap: 1rem;
-            overflow-y: auto;
-        }
+.graph-legend{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
+.legend-item{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.78rem;color:#94a3b8}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 
-        .graph-stats {
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 1rem;
-            border: 1px solid #334155;
-        }
-        .graph-stats h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
-        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid #1e3a5f; }
-        .stat-row:last-child { border-bottom: none; }
-        .stat-label { color: #64748b; font-size: 0.8rem; }
-        .stat-value { color: #e2e8f0; font-weight: bold; font-size: 0.85rem; }
+.node-detail{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155;flex:1;min-height:0;overflow-y:auto}
+.node-detail-empty{color:#475569;font-size:.8rem;font-style:italic}
+.detail-field{margin-bottom:.55rem}
+.detail-key{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem}
+.detail-val{font-size:.8rem;color:#e2e8f0;word-break:break-all}
+.detail-badge{display:inline-block;padding:.12rem .45rem;border-radius:20px;font-size:.68rem;font-weight:bold}
 
-        /* Legend */
-        .graph-legend {
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 1rem;
-            border: 1px solid #334155;
-        }
-        .graph-legend h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
-        .legend-item { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #94a3b8; }
-        .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-        .legend-line { width: 20px; height: 3px; flex-shrink: 0; border-radius: 2px; }
+/* Phase badge */
+#graph-phase-badge{font-size:.8rem;color:#64748b}
+#graph-phase-badge.sigma{color:#22d3ee;animation:pulse 2s infinite}
 
-        /* Node detail panel */
-        .node-detail {
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 1rem;
-            border: 1px solid #334155;
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-        }
-        .node-detail h4 { color: #6366f1; font-size: 0.85rem; margin-bottom: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
-        .node-detail-empty { color: #475569; font-size: 0.8rem; font-style: italic; }
-        .detail-field { margin-bottom: 0.6rem; }
-        .detail-key { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
-        .detail-val { font-size: 0.8rem; color: #e2e8f0; word-break: break-all; }
-        .detail-badge {
-            display: inline-block; padding: 0.15rem 0.5rem;
-            border-radius: 20px; font-size: 0.7rem; font-weight: bold;
-        }
-
-        /* Graph empty state */
-        .graph-empty {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100%; color: #475569; text-align: center; gap: 0.5rem;
-        }
-        .graph-empty-icon { font-size: 3rem; }
-
-        /* Tooltip */
-        #graph-tooltip {
-            position: fixed;
-            background: rgba(15,23,42,0.95);
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 0.6rem 0.9rem;
-            font-size: 0.78rem;
-            color: #e2e8f0;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s;
-            z-index: 9999;
-            max-width: 260px;
-        }
-        #graph-tooltip.visible { opacity: 1; }
-        #graph-tooltip .tip-id { color: #fbbf24; font-weight: bold; margin-bottom: 0.25rem; }
-        #graph-tooltip .tip-row { color: #94a3b8; margin: 0.1rem 0; }
-        #graph-tooltip .tip-row span { color: #e2e8f0; }
-
-        /* Modal */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
-        .modal-content { background: #1e293b; margin: 5% auto; padding: 20px; border: 1px solid #6366f1; border-radius: 12px; width: 80%; max-width: 900px; max-height: 80%; overflow-y: auto; }
-        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #aaa; }
-        .close:hover { color: #fff; }
-        pre { white-space: pre-wrap; word-wrap: break-word; }
-    </style>
+/* Modal */
+.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8)}
+.modal-content{background:#1e293b;margin:5% auto;padding:20px;border:1px solid #6366f1;border-radius:12px;width:80%;max-width:900px;max-height:80%;overflow-y:auto}
+.close{float:right;font-size:28px;font-weight:bold;cursor:pointer;color:#aaa}
+.close:hover{color:#fff}
+pre{white-space:pre-wrap;word-wrap:break-word}
+</style>
 </head>
 <body>
 <div class="container">
-    <h1>🔮 HX-AM Proxy v4</h1>
-    <p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | Graph</p>
+<h1>🔮 HX-AM Proxy v4</h1>
+<p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | 3D Graph | RAG</p>
 
-    <div class="tabs">
-        <button class="tab-button active" onclick="switchTab('query', this)">💬 Запрос</button>
-        <button class="tab-button" onclick="switchTab('graph', this)">🕸️ Граф</button>
-        <button class="tab-button" onclick="switchTab('history', this)">📜 История</button>
-        <button class="tab-button" onclick="switchTab('artifacts', this)">📦 Артефакты</button>
-    </div>
-
-    <!-- Запрос -->
-    <div id="query-tab" class="tab-content active">
-        <textarea id="queryText" placeholder="Введите запрос..."></textarea>
-        <button class="submit-btn" id="submitBtn" onclick="sendQuery()">🚀 Отправить</button>
-        <div id="loading" class="loading">⏳ Генерация и верификация...</div>
-        <div id="pipeline" class="pipeline"></div>
-    </div>
-
-    <!-- Граф -->
-    <div id="graph-tab" class="tab-content">
-        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
-            <button class="refresh-btn" onclick="loadGraph()">🔄 Обновить граф</button>
-            <span id="graph-phase-badge" style="font-size:0.8rem; color:#94a3b8;"></span>
-        </div>
-        <div class="graph-layout">
-            <div id="graph-container">
-                <svg id="graph-svg"></svg>
-                <div class="graph-controls">
-                    <button class="graph-btn" onclick="zoomIn()" title="Приблизить">＋</button>
-                    <button class="graph-btn" onclick="zoomOut()" title="Отдалить">－</button>
-                    <button class="graph-btn" onclick="resetZoom()" title="Сбросить">⌂</button>
-                </div>
-                <div id="graph-empty" class="graph-empty" style="display:none;">
-                    <div class="graph-empty-icon">🕸️</div>
-                    <div>Граф пуст</div>
-                    <div style="font-size:0.75rem;">Отправьте несколько запросов — узлы появятся здесь</div>
-                </div>
-            </div>
-
-            <div class="graph-sidebar">
-                <div class="graph-stats" id="graph-stats">
-                    <h4>📊 Статистика</h4>
-                    <div class="stat-row"><span class="stat-label">Узлов</span><span class="stat-value" id="stat-nodes">—</span></div>
-                    <div class="stat-row"><span class="stat-label">Рёбер</span><span class="stat-value" id="stat-edges">—</span></div>
-                    <div class="stat-row"><span class="stat-label">Кластеров</span><span class="stat-value" id="stat-clusters">—</span></div>
-                    <div class="stat-row"><span class="stat-label">Мостов</span><span class="stat-value" id="stat-bridges">—</span></div>
-                </div>
-
-                <div class="graph-legend">
-                    <h4>🎨 Легенда</h4>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;">Тип узла</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:#4ade80;"></div> stable_cluster</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> hyx-portal / bridge</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> weak_pattern</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> noise / isolated</div>
-                    <div style="font-size:0.75rem; color:#64748b; margin:0.75rem 0 0.5rem;">Вес рёбер</div>
-                    <div class="legend-item"><div class="legend-line" style="background:#6366f1; opacity:1;"></div> высокий weight</div>
-                    <div class="legend-item"><div class="legend-line" style="background:#475569; opacity:0.5;"></div> низкий weight</div>
-                </div>
-
-                <div class="node-detail" id="node-detail">
-                    <h4>🔍 Узел</h4>
-                    <div class="node-detail-empty">Нажмите на узел для просмотра деталей</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- История -->
-    <div id="history-tab" class="tab-content">
-        <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить</button>
-        <div id="history-list" class="history-list">Загрузка...</div>
-    </div>
-
-    <!-- Артефакты -->
-    <div id="artifacts-tab" class="tab-content">
-        <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
-        <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
-    </div>
+<div class="tabs">
+  <button class="tab-button active" onclick="switchTab('query',this)">💬 Запрос</button>
+  <button class="tab-button" onclick="switchTab('graph',this)">🕸️ Граф 3D</button>
+  <button class="tab-button" onclick="switchTab('history',this)">📜 История</button>
+  <button class="tab-button" onclick="switchTab('artifacts',this)">📦 Артефакты</button>
 </div>
 
-<!-- Tooltip -->
-<div id="graph-tooltip"></div>
+<!-- ЗАПРОС -->
+<div id="query-tab" class="tab-content active">
+  <textarea id="queryText" placeholder="Введите запрос... Система покажет связанные инварианты из базы знаний."></textarea>
+
+  <!-- RAG block -->
+  <div id="rag-block">
+    <div class="rag-title">🧠 Система помнит — релевантные инварианты из базы знаний</div>
+    <div id="rag-items"></div>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="sendQuery()">🚀 Отправить</button>
+  <div id="loading" class="loading">⏳ Генерация и верификация...</div>
+  <div id="pipeline" class="pipeline"></div>
+</div>
+
+<!-- ГРАФ 3D -->
+<div id="graph-tab" class="tab-content">
+  <div class="graph-toolbar">
+    <button class="refresh-btn" onclick="loadGraph()">🔄 Обновить граф</button>
+    <span id="graph-phase-badge">—</span>
+  </div>
+  <div class="graph-layout">
+    <div id="graph-container"></div>
+    <div class="graph-sidebar">
+      <div class="graph-stats">
+        <h4>📊 Статистика</h4>
+        <div class="stat-row"><span class="stat-label">Узлов</span><span class="stat-value" id="stat-nodes">—</span></div>
+        <div class="stat-row"><span class="stat-label">Рёбер</span><span class="stat-value" id="stat-edges">—</span></div>
+        <div class="stat-row"><span class="stat-label">Кластеров</span><span class="stat-value" id="stat-clusters">—</span></div>
+        <div class="stat-row"><span class="stat-label">Мостов</span><span class="stat-value" id="stat-bridges">—</span></div>
+      </div>
+      <div class="graph-legend">
+        <h4>🎨 Легенда</h4>
+        <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>stable_cluster</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>hyx-portal / bridge</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>weak_pattern / mixed</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>noise / isolated</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>sigma_primitive</div>
+        <div style="margin-top:.5rem;font-size:.72rem;color:#475569">Размер узла = b_sync<br>Яркость ребра = weight</div>
+      </div>
+      <div class="node-detail" id="node-detail">
+        <h4>🔍 Узел</h4>
+        <div class="node-detail-empty">Нажмите на узел для просмотра деталей</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ИСТОРИЯ -->
+<div id="history-tab" class="tab-content">
+  <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить</button>
+  <div id="history-list" class="history-list">Загрузка...</div>
+</div>
+
+<!-- АРТЕФАКТЫ -->
+<div id="artifacts-tab" class="tab-content">
+  <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
+  <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
+</div>
+</div>
 
 <!-- Modal -->
 <div id="artifactModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>📄 Детали</h2>
-        <pre id="artifactContent">Загрузка...</pre>
-    </div>
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2>📄 Детали</h2>
+    <pre id="artifactContent">Загрузка...</pre>
+  </div>
 </div>
 
 <script>
-// ══════════════════════════════════════
+// ══════════════════════
 // TABS
-// ══════════════════════════════════════
-function switchTab(tabName, btn) {
-    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById(tabName + '-tab').classList.add('active');
-    if (tabName === 'history') loadHistory();
-    if (tabName === 'artifacts') loadArtifacts();
-    if (tabName === 'graph') loadGraph();
+// ══════════════════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(name + '-tab').classList.add('active');
+  if (name === 'history') loadHistory();
+  if (name === 'artifacts') loadArtifacts();
+  if (name === 'graph') loadGraph();
 }
 
-// ══════════════════════════════════════
+// ══════════════════════
+// RAG CONTEXT
+// ══════════════════════
+let ragTimer = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('queryText').addEventListener('input', () => {
+    clearTimeout(ragTimer);
+    ragTimer = setTimeout(fetchRag, 600);
+  });
+});
+
+async function fetchRag() {
+  const text = document.getElementById('queryText').value.trim();
+  const block = document.getElementById('rag-block');
+  const items = document.getElementById('rag-items');
+  if (text.length < 10) { block.classList.remove('visible'); return; }
+  try {
+    const res = await fetch('/rag/context?text=' + encodeURIComponent(text) + '&top_k=3');
+    const data = await res.json();
+    if (!data.similar || data.similar.length === 0) {
+      block.classList.remove('visible');
+      return;
+    }
+    items.innerHTML = data.similar.map(s => `
+      <div class="rag-item">
+        <span class="rag-domain">${s.domain}</span>
+        <span class="rag-sim">sim: ${s.similarity}</span>
+        <div class="rag-text">${escHtml(s.invariant)}</div>
+      </div>
+    `).join('');
+    block.classList.add('visible');
+  } catch(e) {
+    block.classList.remove('visible');
+  }
+}
+
+// ══════════════════════
 // QUERY
-// ══════════════════════════════════════
+// ══════════════════════
 async function sendQuery() {
-    const text = document.getElementById('queryText').value.trim();
-    if (!text) return;
-    const submitBtn = document.getElementById('submitBtn');
-    const loadingDiv = document.getElementById('loading');
-    const pipelineDiv = document.getElementById('pipeline');
-    submitBtn.disabled = true;
-    loadingDiv.classList.add('active');
-    pipelineDiv.innerHTML = '';
-    try {
-        const response = await fetch('/query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, domain: 'general', x_coordinate: 500 })
-        });
-        const data = await response.json();
-        const s = data.structural || {};
-        const typeColor = { 'hyx-artifact': '#4ade80', 'hyx-portal': '#6366f1', 'weak_pattern': '#f59e0b', 'noise': '#ef4444', 'sigma_primitive_candidate': '#22d3ee' };
-        const tc = typeColor[s.artifact_type] || '#94a3b8';
-        pipelineDiv.innerHTML = `
-            <div class="panel">
-                <h3>⚙️ Генератор · domain: <b style="color:#fbbf24">${data.domain || '—'}</b></h3>
-                <pre>${JSON.stringify(data.generation, null, 2)}</pre>
-            </div>
-            <div class="panel">
-                <h3>🔍 Верификатор</h3>
-                <pre>${JSON.stringify(data.verification, null, 2)}</pre>
-            </div>
-            <div class="panel">
-                <h3>✅ Структура</h3>
-                <pre>Тип: <span style="color:${tc}">${s.artifact_type || '—'}</span>
+  const text = document.getElementById('queryText').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('submitBtn');
+  const loading = document.getElementById('loading');
+  const pipeline = document.getElementById('pipeline');
+  btn.disabled = true;
+  loading.classList.add('active');
+  pipeline.innerHTML = '';
+  try {
+    const res = await fetch('/query', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, domain: 'general', x_coordinate: 500})
+    });
+    const data = await res.json();
+    const s = data.structural || {};
+    const tc = typeColor(s.artifact_type);
+    const ragCtx = (data.rag_context || []);
+
+    pipeline.innerHTML = `
+      <div class="panel">
+        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''}</h3>
+        <pre>${JSON.stringify(data.generation, null, 2)}</pre>
+      </div>
+      <div class="panel">
+        <h3>🔍 Верификатор</h3>
+        <pre>${JSON.stringify(data.verification, null, 2)}</pre>
+      </div>
+      <div class="panel">
+        <h3>✅ Структура</h3>
+        <pre>Тип: <span style="color:${tc}">${s.artifact_type || '—'}</span>
 Stability: ${s.stability || '—'}
 Centrality: ${s.centrality ?? '—'}
-Bridge: ${s.is_bridge ? 'ДА' : 'нет'}
+Bridge: ${s.is_bridge ? '✅ ДА' : 'нет'}
 Similar: ${(s.similar_invariants || []).length}
 Phase: ${s.phase_signal?.signal || '—'}
-Сохранён: ${data.saved ? 'ДА' : 'НЕТ'}</pre>
-            </div>`;
-    } catch (err) {
-        pipelineDiv.innerHTML = `<div style="color:#ef4444;padding:1rem;">❌ ${err.message}</div>`;
-    } finally {
-        submitBtn.disabled = false;
-        loadingDiv.classList.remove('active');
-    }
+Сохранён: ${data.saved ? '✅ ДА' : 'нет'}</pre>
+      </div>`;
+  } catch(err) {
+    pipeline.innerHTML = `<div style="color:#ef4444;padding:1rem">❌ ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    loading.classList.remove('active');
+  }
 }
 
-// ══════════════════════════════════════
-// HISTORY & ARTIFACTS
-// ══════════════════════════════════════
+// ══════════════════════
+// HISTORY — fixed: store entries in array, reference by index
+// ══════════════════════
+let historyEntries = [];
+
 async function loadHistory() {
-    const container = document.getElementById('history-list');
-    container.innerHTML = 'Загрузка...';
-    try {
-        const res = await fetch('/history');
-        const data = await res.json();
-        if (!data.history?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>'; return; }
-        container.innerHTML = data.history.map(e => {
-            const time = new Date(e.time * 1000).toLocaleString('ru-RU');
-            const q = (e.query || '').substring(0, 120);
-            return `<div class="history-item" onclick='showDetail(${JSON.stringify(e)})'>
-                <div class="history-timestamp">🕐 ${time}</div>
-                <div class="history-query">${escapeHtml(q)}</div>
-                <div class="history-meta">${e.saved ? '✅ сохранён' : '❌ не сохранён'} · ${e.domain || 'general'}</div>
-            </div>`;
-        }).join('');
-    } catch (err) { container.innerHTML = `<div style="color:#ef4444;">${err.message}</div>`; }
+  const container = document.getElementById('history-list');
+  container.innerHTML = 'Загрузка...';
+  try {
+    const res = await fetch('/history');
+    const data = await res.json();
+    historyEntries = data.history || [];
+    if (!historyEntries.length) {
+      container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>';
+      return;
+    }
+    container.innerHTML = historyEntries.map((e, i) => {
+      const t = new Date(e.time * 1000).toLocaleString('ru-RU');
+      const q = (e.query || '').substring(0, 120);
+      const at = (e.structural || {}).artifact_type || '—';
+      const tc = typeColor(at);
+      return `<div class="history-item" onclick="showHistoryDetail(${i})">
+        <div class="history-timestamp">🕐 ${t} · <b style="color:#94a3b8">${e.domain || 'general'}</b></div>
+        <div class="history-query">${escHtml(q)}</div>
+        <div class="history-meta">
+          ${e.saved ? '✅ сохранён' : '❌ не сохранён'}
+          · <span style="color:${tc}">${at}</span>
+          ${(e.rag_context || []).length ? '· 🧠 RAG:' + e.rag_context.length : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
+  }
 }
 
+function showHistoryDetail(i) {
+  const e = historyEntries[i];
+  if (!e) return;
+  showModal(JSON.stringify(e, null, 2));
+}
+
+// ══════════════════════
+// ARTIFACTS
+// ══════════════════════
 async function loadArtifacts() {
-    const container = document.getElementById('artifacts-list');
-    container.innerHTML = 'Загрузка...';
-    try {
-        const res = await fetch('/artifacts');
-        const data = await res.json();
-        if (!data.artifacts?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>'; return; }
-        container.innerHTML = data.artifacts.map(item =>
-            `<div class="artifact-item" onclick="viewArtifact('${item.file}')"><div class="artifact-filename">📄 ${item.file}</div></div>`
-        ).join('');
-    } catch (err) { container.innerHTML = `<div style="color:#ef4444;">${err.message}</div>`; }
+  const container = document.getElementById('artifacts-list');
+  container.innerHTML = 'Загрузка...';
+  try {
+    const res = await fetch('/artifacts');
+    const data = await res.json();
+    if (!data.artifacts?.length) {
+      container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>';
+      return;
+    }
+    container.innerHTML = data.artifacts.map(item => {
+      const isPortal = item.file.includes('.hyx-portal');
+      return `<div class="artifact-item" onclick="viewArtifact('${item.file}')">
+        <div class="artifact-filename">${isPortal ? '🌀' : '📄'} ${item.file}</div>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
+  }
 }
 
 async function viewArtifact(filename) {
-    showModal('Загрузка...');
-    try {
-        const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
-        if (!res.ok) throw new Error('Не найден');
-        const data = await res.json();
-        document.getElementById('artifactContent').textContent = JSON.stringify(data, null, 2);
-    } catch (err) {
-        document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`;
-    }
+  showModal('Загрузка...');
+  try {
+    const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
+    if (!res.ok) throw new Error('Не найден');
+    const data = await res.json();
+    document.getElementById('artifactContent').textContent = JSON.stringify(data, null, 2);
+  } catch(err) {
+    document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`;
+  }
 }
 
-function showDetail(entry) { showModal(JSON.stringify(entry, null, 2)); }
 function showModal(text) {
-    document.getElementById('artifactContent').textContent = text;
-    document.getElementById('artifactModal').style.display = 'block';
+  document.getElementById('artifactContent').textContent = text;
+  document.getElementById('artifactModal').style.display = 'block';
 }
-function closeModal() { document.getElementById('artifactModal').style.display = 'none'; }
-window.onclick = e => { if (e.target === document.getElementById('artifactModal')) closeModal(); };
-
-// ══════════════════════════════════════
-// D3 GRAPH
-// ══════════════════════════════════════
-let graphSvg, graphSim, zoomBehavior;
-
-const NODE_COLORS = {
-    stable_cluster: '#4ade80',
-    'hyx-portal':   '#6366f1',
-    weak_pattern:   '#f59e0b',
-    noise:          '#ef4444',
-    isolated:       '#ef4444',
-    mixed_patterns: '#f59e0b',
-    sigma_primitive_candidate: '#22d3ee',
-    unknown:        '#94a3b8',
+function closeModal() {
+  document.getElementById('artifactModal').style.display = 'none';
+}
+window.onclick = e => {
+  if (e.target === document.getElementById('artifactModal')) closeModal();
 };
 
-function getNodeColor(node) {
-    if (node.is_bridge) return NODE_COLORS['hyx-portal'];
-    return NODE_COLORS[node.stability] || NODE_COLORS.unknown;
+// ══════════════════════
+// 3D GRAPH
+// ══════════════════════
+let graph3d = null;
+
+const NODE_COLORS = {
+  stable_cluster: '#4ade80',
+  'hyx-portal':   '#6366f1',
+  weak_pattern:   '#f59e0b',
+  mixed_patterns: '#f59e0b',
+  noise:          '#ef4444',
+  isolated:       '#ef4444',
+  sigma_primitive_candidate: '#22d3ee',
+  unknown:        '#94a3b8',
+};
+
+function typeColor(t) {
+  return NODE_COLORS[t] || '#94a3b8';
 }
 
-function getNodeRadius(node) {
-    const base = 10;
-    const bBonus = (node.b_sync || 0) * 8;
-    return base + bBonus;
+function getNodeColor(node) {
+  if (node.is_bridge) return NODE_COLORS['hyx-portal'];
+  return NODE_COLORS[node.stability] || NODE_COLORS.unknown;
+}
+
+function getNodeSize(node) {
+  return 4 + (node.b_sync || 0) * 6;
 }
 
 async function loadGraph() {
-    try {
-        // Фазовый сигнал
-        const phaseRes = await fetch('/phase');
-        const phase = await phaseRes.json();
-        const badge = document.getElementById('graph-phase-badge');
-        if (phase.signal === 'sigma_primitive_candidate') {
-            badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density}`;
-            badge.style.color = '#22d3ee';
-        } else {
-            badge.textContent = `Phase: ${phase.signal} · density=${phase.density}`;
-            badge.style.color = '#64748b';
-        }
+  try {
+    const [phaseRes, dataRes] = await Promise.all([
+      fetch('/phase'),
+      fetch('/graph/data')
+    ]);
+    const phase = await phaseRes.json();
+    const data = await dataRes.json();
 
-        // Данные графа
-        const res = await fetch('/graph/data');
-        const data = await res.json();
-
-        // Статистика
-        document.getElementById('stat-nodes').textContent = data.meta.total_nodes;
-        document.getElementById('stat-edges').textContent = data.meta.total_edges;
-        document.getElementById('stat-clusters').textContent = data.meta.cluster_count;
-        document.getElementById('stat-bridges').textContent = data.meta.bridge_count;
-
-        const empty = document.getElementById('graph-empty');
-        if (!data.nodes.length) { empty.style.display = 'flex'; return; }
-        empty.style.display = 'none';
-
-        renderGraph(data);
-    } catch (err) {
-        console.error('Graph load error:', err);
+    // Phase badge
+    const badge = document.getElementById('graph-phase-badge');
+    if (phase.signal === 'sigma_primitive_candidate') {
+      badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density}`;
+      badge.className = 'sigma';
+    } else {
+      badge.textContent = `Phase: ${phase.signal} · density=${phase.density}`;
+      badge.className = '';
     }
+
+    // Stats
+    document.getElementById('stat-nodes').textContent = data.meta.total_nodes;
+    document.getElementById('stat-edges').textContent = data.meta.total_edges;
+    document.getElementById('stat-clusters').textContent = data.meta.cluster_count;
+    document.getElementById('stat-bridges').textContent = data.meta.bridge_count;
+
+    if (!data.nodes.length) return;
+
+    renderGraph3D(data);
+  } catch(err) {
+    console.error('Graph load error:', err);
+  }
 }
 
-function renderGraph(data) {
-    const container = document.getElementById('graph-container');
-    const svg = d3.select('#graph-svg');
-    svg.selectAll('*').remove();
+function renderGraph3D(data) {
+  const container = document.getElementById('graph-container');
+  container.innerHTML = '';
 
-    const W = container.clientWidth;
-    const H = container.clientHeight;
+  // Normalize link weights for color
+  const maxWeight = Math.max(...data.links.map(l => l.weight), 0.001);
 
-    // Zoom
-    zoomBehavior = d3.zoom()
-        .scaleExtent([0.2, 5])
-        .on('zoom', e => g.attr('transform', e.transform));
+  // Build node map for labels
+  const nodeMap = {};
+  data.nodes.forEach(n => nodeMap[n.id] = n);
 
-    svg.call(zoomBehavior);
+  // Format for 3d-force-graph
+  const graphData = {
+    nodes: data.nodes.map(n => ({
+      ...n,
+      name: n.id.substring(0, 8),
+      color: getNodeColor(n),
+      val: getNodeSize(n),
+    })),
+    links: data.links.map(l => ({
+      ...l,
+      color: lerpColor('#1e3a5f', '#6366f1', l.weight / maxWeight),
+    }))
+  };
 
-    const g = svg.append('g');
-
-    // Defs: arrow marker (не используем стрелки, но оставим glow filter)
-    const defs = svg.append('defs');
-    const filter = defs.append('filter').attr('id', 'glow');
-    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
-    const feMerge = filter.append('feMerge');
-    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
-
-    // Nodes index for simulation
-    const nodeById = {};
-    data.nodes.forEach(n => nodeById[n.id] = n);
-
-    // Links
-    const links = data.links.map(l => ({
-        ...l,
-        source: nodeById[l.source] || l.source,
-        target: nodeById[l.target] || l.target,
-    }));
-
-    // Force simulation
-    graphSim = d3.forceSimulation(data.nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(d => 120 - (d.weight || 0) * 60))
-        .force('charge', d3.forceManyBody().strength(-220))
-        .force('center', d3.forceCenter(W / 2, H / 2))
-        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 8));
-
-    // Draw edges
-    const maxWeight = d3.max(data.links, d => d.weight) || 1;
-    const link = g.append('g').attr('class', 'links')
-        .selectAll('line')
-        .data(links)
-        .enter().append('line')
-        .attr('class', 'link')
-        .attr('stroke', d => {
-            const norm = d.weight / maxWeight;
-            return d3.interpolateRgb('#1e3a5f', '#6366f1')(norm);
-        })
-        .attr('stroke-width', d => 1 + (d.weight / maxWeight) * 3)
-        .attr('stroke-opacity', d => 0.3 + (d.weight / maxWeight) * 0.6);
-
-    // Draw edge weight labels (only if weight > 0)
-    const linkLabels = g.append('g').attr('class', 'link-labels')
-        .selectAll('text')
-        .data(links.filter(d => d.weight > 0))
-        .enter().append('text')
-        .attr('font-size', '8px')
-        .attr('fill', '#475569')
-        .attr('text-anchor', 'middle')
-        .text(d => d.weight.toFixed(2));
-
-    // Draw nodes
-    const tooltip = document.getElementById('graph-tooltip');
-    const node = g.append('g').attr('class', 'nodes')
-        .selectAll('.node')
-        .data(data.nodes)
-        .enter().append('g')
-        .attr('class', 'node')
-        .call(d3.drag()
-            .on('start', (event, d) => {
-                if (!event.active) graphSim.alphaTarget(0.3).restart();
-                d.fx = d.x; d.fy = d.y;
-            })
-            .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
-            .on('end', (event, d) => {
-                if (!event.active) graphSim.alphaTarget(0);
-                d.fx = null; d.fy = null;
-            })
-        )
-        .on('mouseover', (event, d) => {
-            tooltip.innerHTML = `
-                <div class="tip-id">${d.id}</div>
-                <div class="tip-row">domain: <span>${d.domain}</span></div>
-                <div class="tip-row">b_sync: <span>${d.b_sync}</span></div>
-                <div class="tip-row">stability: <span>${d.stability}</span></div>
-                <div class="tip-row">bridge: <span>${d.is_bridge ? 'ДА' : 'нет'}</span></div>
-            `;
-            tooltip.classList.add('visible');
-        })
-        .on('mousemove', (event) => {
-            tooltip.style.left = (event.clientX + 14) + 'px';
-            tooltip.style.top = (event.clientY - 10) + 'px';
-        })
-        .on('mouseout', () => tooltip.classList.remove('visible'))
-        .on('click', (event, d) => showNodeDetail(d));
-
-    node.append('circle')
-        .attr('r', d => getNodeRadius(d))
-        .attr('fill', d => getNodeColor(d) + '33')   // прозрачная заливка
-        .attr('stroke', d => getNodeColor(d))
-        .style('filter', 'url(#glow)')
-        .style('color', d => getNodeColor(d));
-
-    // Bridge ring
-    node.filter(d => d.is_bridge)
-        .append('circle')
-        .attr('r', d => getNodeRadius(d) + 5)
-        .attr('fill', 'none')
-        .attr('stroke', '#6366f1')
-        .attr('stroke-width', 1)
-        .attr('stroke-dasharray', '3,3')
-        .attr('opacity', 0.6);
-
-    node.append('text')
-        .attr('dy', d => getNodeRadius(d) + 12)
-        .attr('text-anchor', 'middle')
-        .text(d => d.id.substring(0, 8));
-
-    // Tick
-    graphSim.on('tick', () => {
-        link
-            .attr('x1', d => d.source.x)
-            .attr('y1', d => d.source.y)
-            .attr('x2', d => d.target.x)
-            .attr('y2', d => d.target.y);
-
-        linkLabels
-            .attr('x', d => (d.source.x + d.target.x) / 2)
-            .attr('y', d => (d.source.y + d.target.y) / 2 - 4);
-
-        node.attr('transform', d => `translate(${d.x},${d.y})`);
-    });
-
-    graphSvg = svg;
+  graph3d = ForceGraph3D({ controlType: 'orbit' })(container)
+    .width(container.clientWidth)
+    .height(container.clientHeight)
+    .backgroundColor('#060d18')
+    .nodeLabel(n => `
+      <div style="background:rgba(15,23,42,.95);border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;font-family:monospace;font-size:.75rem;max-width:260px">
+        <div style="color:#fbbf24;font-weight:bold;margin-bottom:.3rem">${n.id}</div>
+        <div style="color:#94a3b8">domain: <span style="color:#e2e8f0">${n.domain}</span></div>
+        <div style="color:#94a3b8">b_sync: <span style="color:#e2e8f0">${n.b_sync}</span></div>
+        <div style="color:#94a3b8">stability: <span style="color:${getNodeColor(n)}">${n.stability}</span></div>
+        <div style="color:#94a3b8">bridge: <span style="color:#e2e8f0">${n.is_bridge ? '✅' : '—'}</span></div>
+      </div>
+    `)
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .nodeOpacity(0.9)
+    .linkColor(l => l.color)
+    .linkWidth(l => 0.5 + (l.weight / maxWeight) * 2.5)
+    .linkOpacity(0.6)
+    .linkLabel(l => `weight: ${l.weight.toFixed(3)} · sim: ${l.similarity.toFixed(3)}`)
+    .graphData(graphData)
+    .onNodeClick(node => showNodeDetail(node));
 }
 
 function showNodeDetail(d) {
-    const panel = document.getElementById('node-detail');
-    const typeColor = NODE_COLORS[d.stability] || '#94a3b8';
-    panel.innerHTML = `
-        <h4>🔍 Узел</h4>
-        <div class="detail-field">
-            <div class="detail-key">ID</div>
-            <div class="detail-val" style="color:#fbbf24">${d.id}</div>
-        </div>
-        <div class="detail-field">
-            <div class="detail-key">Domain</div>
-            <div class="detail-val">${d.domain}</div>
-        </div>
-        <div class="detail-field">
-            <div class="detail-key">B_sync</div>
-            <div class="detail-val">${d.b_sync}</div>
-        </div>
-        <div class="detail-field">
-            <div class="detail-key">Stability</div>
-            <div class="detail-val">
-                <span class="detail-badge" style="background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}66">${d.stability}</span>
-            </div>
-        </div>
-        <div class="detail-field">
-            <div class="detail-key">Cluster</div>
-            <div class="detail-val">${d.cluster >= 0 ? '#' + d.cluster : 'изолирован'}</div>
-        </div>
-        <div class="detail-field">
-            <div class="detail-key">Bridge</div>
-            <div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div>
-        </div>
-        <div style="margin-top:0.75rem;">
-            <button class="refresh-btn" style="font-size:0.75rem;padding:0.35rem 0.75rem;" 
-                onclick="viewArtifact('${d.id}.json'); showModal('Загрузка...')">
-                📄 Открыть артефакт
-            </button>
-        </div>
-    `;
+  const panel = document.getElementById('node-detail');
+  const tc = getNodeColor(d);
+  panel.innerHTML = `
+    <h4>🔍 Узел</h4>
+    <div class="detail-field">
+      <div class="detail-key">ID</div>
+      <div class="detail-val" style="color:#fbbf24">${d.id}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-key">Domain</div>
+      <div class="detail-val">${d.domain}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-key">B_sync</div>
+      <div class="detail-val">${d.b_sync}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-key">Stability</div>
+      <div class="detail-val">
+        <span class="detail-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}66">${d.stability}</span>
+      </div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-key">Cluster</div>
+      <div class="detail-val">${d.cluster >= 0 ? '#' + d.cluster : 'изолирован'}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-key">Bridge</div>
+      <div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div>
+    </div>
+    <div style="margin-top:.75rem">
+      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem"
+        onclick="viewArtifact('${d.id}.json')">📄 Открыть артефакт</button>
+    </div>
+  `;
 }
 
-// Zoom controls
-function zoomIn()    { graphSvg && graphSvg.transition().call(zoomBehavior.scaleBy, 1.4); }
-function zoomOut()   { graphSvg && graphSvg.transition().call(zoomBehavior.scaleBy, 0.7); }
-function resetZoom() { graphSvg && graphSvg.transition().call(zoomBehavior.transform, d3.zoomIdentity); }
+// Resize 3D graph on window resize
+window.addEventListener('resize', () => {
+  if (graph3d) {
+    const c = document.getElementById('graph-container');
+    graph3d.width(c.clientWidth).height(c.clientHeight);
+  }
+});
 
-function escapeHtml(str) {
-    return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+// ══════════════════════
+// UTILS
+// ══════════════════════
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.replace('#',''), 16);
+  const bh = parseInt(b.replace('#',''), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  const rr = Math.round(ar + (br - ar) * t);
+  const rg = Math.round(ag + (bg - ag) * t);
+  const rb = Math.round(ab + (bb - ab) * t);
+  return `#${((1<<24)+(rr<<16)+(rg<<8)+rb).toString(16).slice(1)}`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
 window.onload = () => { loadHistory(); loadArtifacts(); };

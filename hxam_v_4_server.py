@@ -1,11 +1,5 @@
 # HX-AM v4 Full Server (Dual LLM + Invariant Engine + UI + Storage)
-# Использует LLMClient (generate + verify) и InvariantEngine
-
-import os
-import json
-import time
-import hashlib
-import logging
+import os, json, time, hashlib, logging, re
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, Any
@@ -16,12 +10,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from llm_client_v_4 import LLMClient
-from invariant_engine import (
-    SemanticSpace,
-    InvariantGraph,
-    PhaseDetector,
-    process_with_invariants,
-)
+from invariant_engine import SemanticSpace, InvariantGraph, PhaseDetector, process_with_invariants
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -29,34 +18,20 @@ logger = logging.getLogger("HXAM.v4")
 
 app = FastAPI(title="HX-AM v4")
 
-# =====================
-# ИНИЦИАЛИЗАЦИЯ ДВИЖКА (один раз при старте)
-# =====================
 Path("artifacts").mkdir(exist_ok=True)
-
 logger.info("Загрузка семантического индекса...")
 semantic_space = SemanticSpace()
-
 logger.info("Загрузка графа инвариантов...")
 invariant_graph = InvariantGraph()
-
 phase_detector = PhaseDetector()
 logger.info("Invariant Engine готов.")
 
 
-# =====================
-# MODELS
-# =====================
-
 class QueryRequest(BaseModel):
     text: str
-    domain: str = "general"   # фолбэк если генератор не вернул domain
+    domain: str = "general"
     x_coordinate: float = 500.0
 
-
-# =====================
-# HELPERS
-# =====================
 
 def load_prompt(name: str) -> str:
     path = Path("prompts") / name
@@ -71,7 +46,6 @@ VER_PROMPT = load_prompt("verifier_prompt.txt")
 
 
 def extract_json(text: str) -> Dict[str, Any]:
-    import re
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         return {}
@@ -82,10 +56,6 @@ def extract_json(text: str) -> Dict[str, Any]:
 
 
 def resolve_domain(gen: dict, req_domain: str) -> str:
-    """
-    Берёт domain из ответа генератора.
-    Фолбэк: domain из запроса (req.domain), затем 'general'.
-    """
     gen_domain = gen.get("domain", "").strip().lower()
     if gen_domain and gen_domain != "general":
         return gen_domain
@@ -97,11 +67,7 @@ def resolve_domain(gen: dict, req_domain: str) -> str:
 def save_artifact(job_id: str, data: Dict[str, Any]) -> str:
     path = Path("artifacts")
     path.mkdir(exist_ok=True)
-    obj = {
-        "id": job_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "data": data,
-    }
+    obj = {"id": job_id, "created_at": datetime.now(timezone.utc).isoformat(), "data": data}
     file = path / f"{job_id}.json"
     file.write_text(json.dumps(obj, indent=2, ensure_ascii=False))
     return str(file)
@@ -115,34 +81,32 @@ def log_history(entry: Dict[str, Any]):
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-# =====================
-# CORE
-# =====================
-
 def process_query(req: QueryRequest):
     client = LLMClient()
     job_id = hashlib.md5(f"{req.text}{time.time()}".encode()).hexdigest()[:12]
 
-    # ---- Генерация ----
-    gen_input = f"""{GEN_PROMPT}
+    # RAG: найти похожие инварианты из базы знаний
+    rag_similar = semantic_space.nearest(req.text, top_k=3, threshold=0.55)
+    rag_block = ""
+    if rag_similar:
+        rag_block = "\n\nРелевантные инварианты из базы знаний системы:\n"
+        for s in rag_similar:
+            rag_block += f"- [{s['domain']}] {s['invariant']} (similarity: {s['similarity']})\n"
+
+    gen_input = f"""{GEN_PROMPT}{rag_block}
 
 X: {req.x_coordinate}
 
 User input:
 {req.text}
 """
-    logger.info(f"Job {job_id}: generating...")
+    logger.info(f"Job {job_id}: generating... rag_hits={len(rag_similar)}")
     gen_raw = client.generate(gen_input)
     gen = extract_json(gen_raw)
 
-    # Определяем домен: приоритет у генератора
     domain = resolve_domain(gen, req.domain)
-    logger.info(
-        f"Job {job_id}: generation done → "
-        f"b_sync={gen.get('b_sync')} domain={domain}"
-    )
+    logger.info(f"Job {job_id}: generation done → b_sync={gen.get('b_sync')} domain={domain}")
 
-    # ---- Верификация ----
     ver_input = f"""{VER_PROMPT}
 
 Hypothesis:
@@ -151,77 +115,81 @@ Hypothesis:
     logger.info(f"Job {job_id}: verifying...")
     ver_raw = client.verify(ver_input, context=req.text)
     ver = extract_json(ver_raw)
-    logger.info(
-        f"Job {job_id}: verification done → "
-        f"verdict={ver.get('verdict')} confidence={ver.get('confidence')}"
-    )
+    logger.info(f"Job {job_id}: verification done → verdict={ver.get('verdict')} confidence={ver.get('confidence')}")
 
     verdict = ver.get("verdict", "FALSE")
     confidence = ver.get("confidence", 0)
 
-    # ---- Решение о сохранении ----
     save = False
     if verdict == "VALID" and confidence > 0.6:
         save = True
     elif verdict == "WEAK" and gen.get("b_sync", 0) > 0.7:
         save = True
 
-    # ---- Собираем промежуточный результат ----
     result = {
         "job_id": job_id,
         "generation": gen,
         "verification": ver,
         "saved": save,
         "artifact": None,
-        "domain": domain,   # <- domain от генератора, не от req
+        "domain": domain,
+        "rag_context": rag_similar,
     }
 
-    # ---- Invariant Engine ----
     logger.info(f"Job {job_id}: running invariant engine...")
     result = process_with_invariants(
-        result=result,
-        job_id=job_id,
-        space=semantic_space,
-        graph=invariant_graph,
-        detector=phase_detector,
+        result=result, job_id=job_id,
+        space=semantic_space, graph=invariant_graph, detector=phase_detector,
     )
     logger.info(
         f"Job {job_id}: structural={result.get('structural', {}).get('artifact_type')} "
-        f"stability={result.get('structural', {}).get('stability')} "
-        f"domain={domain}"
+        f"stability={result.get('structural', {}).get('stability')} domain={domain}"
     )
 
-    # ---- Сохранение артефакта ----
+    # Сохранение .hyx-portal.json для bridge-артефактов
+    structural = result.get("structural", {})
+    if structural.get("is_bridge"):
+        portal_path = Path("artifacts") / f"{job_id}.hyx-portal.json"
+        portal_data = {
+            "id": job_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "type": "hyx-portal",
+            "domain": domain,
+            "hypothesis": gen.get("hypothesis", ""),
+            "centrality": structural.get("centrality", 0),
+            "similar_invariants": structural.get("similar_invariants", []),
+            "phase_signal": structural.get("phase_signal", {}),
+        }
+        portal_path.write_text(json.dumps(portal_data, indent=2, ensure_ascii=False))
+        logger.info(f"Job {job_id}: hyx-portal.json saved")
+
     if save:
         artifact_path = save_artifact(job_id, {
-            "gen": result["generation"],
-            "ver": ver,
-            "domain": domain,
-            "structural": result.get("structural", {}),
+            "gen": result["generation"], "ver": ver,
+            "domain": domain, "structural": structural,
         })
         result["artifact"] = artifact_path
 
-    # ---- История ----
     log_history({
-        "time": time.time(),
-        "query": req.text,
-        "domain": domain,
-        "gen": result["generation"],
-        "ver": ver,
-        "saved": save,
-        "structural": result.get("structural", {}),
+        "time": time.time(), "query": req.text, "domain": domain,
+        "gen": result["generation"], "ver": ver,
+        "saved": save, "structural": structural,
+        "rag_context": rag_similar,
     })
 
     return result
 
 
-# =====================
-# API
-# =====================
-
 @app.post("/query")
 def query(req: QueryRequest):
     return process_query(req)
+
+
+@app.get("/rag/context")
+def rag_context(text: str, top_k: int = 3):
+    """Возвращает похожие инварианты для текста — используется UI для явного RAG-блока."""
+    similar = semantic_space.nearest(text, top_k=top_k, threshold=0.55)
+    return {"similar": similar, "count": len(similar)}
 
 
 @app.get("/history")
@@ -246,8 +214,7 @@ def artifacts():
         return {"artifacts": []}
     files = sorted(
         [f for f in path.glob("*.json") if f.stem != "invariant_graph"],
-        key=lambda f: f.stat().st_mtime,
-        reverse=True,
+        key=lambda f: f.stat().st_mtime, reverse=True,
     )
     return {"artifacts": [{"file": f.name} for f in files[:20]]}
 
@@ -260,10 +227,8 @@ def artifact(name: str):
     return json.loads(file.read_text())
 
 
-
 @app.get("/graph/data")
 def graph_data():
-    """Полные данные графа для D3.js визуализации."""
     G = invariant_graph.G
     nodes = []
     for node_id, attrs in G.nodes(data=True):
@@ -276,8 +241,7 @@ def graph_data():
     links = []
     for u, v, attrs in G.edges(data=True):
         links.append({
-            "source": u,
-            "target": v,
+            "source": u, "target": v,
             "weight": attrs.get("weight", 0.0),
             "similarity": attrs.get("similarity", 0.0),
             "domain_distance": attrs.get("domain_distance", 0.0),
@@ -292,33 +256,26 @@ def graph_data():
         node["cluster"] = cluster_map.get(node["id"], -1)
         node["is_bridge"] = node["id"] in bridge_nodes
     return {
-        "nodes": nodes,
-        "links": links,
+        "nodes": nodes, "links": links,
         "meta": {
-            "total_nodes": len(nodes),
-            "total_edges": len(links),
-            "cluster_count": len(clusters),
-            "bridge_count": len(bridge_nodes),
+            "total_nodes": len(nodes), "total_edges": len(links),
+            "cluster_count": len(clusters), "bridge_count": len(bridge_nodes),
         }
     }
 
+
 @app.get("/graph")
 def graph():
-    """Состояние графа инвариантов: узлы, рёбра, кластеры, мосты."""
     clusters = [list(c) for c in invariant_graph.get_invariant_clusters()]
     bridges = invariant_graph.get_bridges()
     return {
-        "nodes": len(invariant_graph.G.nodes),
-        "edges": len(invariant_graph.G.edges),
-        "clusters": clusters,
-        "bridges": bridges,
-        "cluster_count": len(clusters),
+        "nodes": len(invariant_graph.G.nodes), "edges": len(invariant_graph.G.edges),
+        "clusters": clusters, "bridges": bridges, "cluster_count": len(clusters),
     }
 
 
 @app.get("/phase")
 def phase():
-    """Текущий сигнал фазового перехода по последним 10 артефактам."""
     return phase_detector.detect_phase_transition(semantic_space)
 
 
@@ -331,10 +288,6 @@ def ui():
         return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
-
-# =====================
-# RUN
-# =====================
 
 if __name__ == "__main__":
     import uvicorn
