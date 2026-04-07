@@ -101,11 +101,11 @@ User input:
 {req.text}
 """
     logger.info(f"Job {job_id}: generating... rag_hits={len(rag_similar)}")
-    gen_raw = client.generate(gen_input)
+    gen_raw, gen_model = client.generate(gen_input)
     gen = extract_json(gen_raw)
 
     domain = resolve_domain(gen, req.domain)
-    logger.info(f"Job {job_id}: generation done → b_sync={gen.get('b_sync')} domain={domain}")
+    logger.info(f"Job {job_id}: generation done → b_sync={gen.get('b_sync')} domain={domain} model={gen_model}")
 
     ver_input = f"""{VER_PROMPT}
 
@@ -113,9 +113,9 @@ Hypothesis:
 {json.dumps(gen, ensure_ascii=False)}
 """
     logger.info(f"Job {job_id}: verifying...")
-    ver_raw = client.verify(ver_input, context=req.text)
+    ver_raw, ver_model = client.verify(ver_input, context=req.text)
     ver = extract_json(ver_raw)
-    logger.info(f"Job {job_id}: verification done → verdict={ver.get('verdict')} confidence={ver.get('confidence')}")
+    logger.info(f"Job {job_id}: verification done → verdict={ver.get('verdict')} confidence={ver.get('confidence')} model={ver_model}")
 
     verdict = ver.get("verdict", "FALSE")
     confidence = ver.get("confidence", 0)
@@ -134,6 +134,8 @@ Hypothesis:
         "artifact": None,
         "domain": domain,
         "rag_context": rag_similar,
+        "gen_model": gen_model,
+        "ver_model": ver_model,
     }
 
     logger.info(f"Job {job_id}: running invariant engine...")

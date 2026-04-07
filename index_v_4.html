@@ -233,6 +233,22 @@ async function fetchRag() {
 }
 
 // ══════════════════════
+// MODEL BADGE
+// ══════════════════════
+function modelBadge(model) {
+  if (!model || model === 'none') return '';
+  const isGroq       = model.startsWith('groq/');
+  const isGemini     = model.startsWith('gemini/');
+  const isOpenRouter = model.startsWith('openrouter/');
+  const colors = { groq:'#4ade80', gemini:'#60a5fa', openrouter:'#fb923c' };
+  const key = isGroq ? 'groq' : isGemini ? 'gemini' : 'openrouter';
+  const c = colors[key];
+  const label = model.split('/').pop().substring(0, 24);
+  const tag = isOpenRouter ? '⚠️ fallback · ' : '';
+  return `<span style="font-size:.68rem;font-weight:normal;background:${c}22;color:${c};border:1px solid ${c}55;border-radius:4px;padding:.1rem .4rem;margin-left:.4rem">${tag}${label}</span>`;
+}
+
+// ══════════════════════
 // QUERY
 // ══════════════════════
 async function sendQuery() {
@@ -257,11 +273,11 @@ async function sendQuery() {
 
     pipeline.innerHTML = `
       <div class="panel">
-        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''}</h3>
+        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''} ${modelBadge(data.gen_model)}</h3>
         <pre>${JSON.stringify(data.generation, null, 2)}</pre>
       </div>
       <div class="panel">
-        <h3>🔍 Верификатор</h3>
+        <h3>🔍 Верификатор ${modelBadge(data.ver_model)}</h3>
         <pre>${JSON.stringify(data.verification, null, 2)}</pre>
       </div>
       <div class="panel">
