@@ -176,7 +176,7 @@ class InvariantGraph:
 
     # ── Методы для Archivist ──────────────────────────────
 
-    def get_similar_nodes(self, embedding: np.ndarray, space: "SemanticSpace", top_k: int = 8) -> list:
+    def get_similar_nodes(self, embedding: np.ndarray, space: "SemanticSpace", top_k: int = 8, exclude_id: str = None) -> list:
         """
         Возвращает топ-K ближайших узлов графа с их атрибутами и метриками ребра.
         Использует SemanticSpace для косинусного поиска, затем обогащает
@@ -186,7 +186,9 @@ class InvariantGraph:
         candidates = space.nearest_by_vec(embedding, top_k=top_k * 2, threshold=0.0)
 
         results = []
-        for c in candidates[:top_k]:
+        for c in candidates:
+            if exclude_id and c["id"] == exclude_id:
+                continue
             node_id = c["id"]
             node_attrs = self.G.nodes.get(node_id, {})
             results.append({
@@ -200,6 +202,8 @@ class InvariantGraph:
                 "survival": node_attrs.get("survival", "UNKNOWN"),
                 "invariant": c.get("invariant", ""),
             })
+            if len(results) >= top_k:
+                break
         return results
 
     def get_subgraph(self, node_id: str, depth: int = 2) -> dict:
@@ -257,13 +261,35 @@ class InvariantGraph:
         self.G.nodes[node_id]["novelty"] = novelty
         self.G.nodes[node_id]["novelty_score"] = novelty_score
         self.G.nodes[node_id]["math_verification"] = math_ver
-        self.G.nodes[node_id]["suggested_tags"] = archivist_result.get("suggested_tags", [])
+
+        tags = archivist_result.get("suggested_tags") or []
+        normalized_tags = []
+        for tag in tags:
+            if tag == "hyx_portal":
+                normalized_tags.append("hyx-portal")
+            else:
+                normalized_tags.append(tag)
+        self.G.nodes[node_id]["suggested_tags"] = normalized_tags
+
+        linked = archivist_result.get("linked_to") or []
+        if node_id in linked:
+            linked = [link for link in linked if link != node_id]
+        self.G.nodes[node_id]["linked_to"] = linked
 
         # Обновляем novelty_weight на всех рёбрах узла
         for neighbor in list(self.G.neighbors(node_id)):
             edge_data = self.G[node_id][neighbor]
             base_weight = edge_data.get("weight", 0.5)
-            edge_data["novelty_weight"] = round(base_weight * novelty_score, 3)
+            novelty_category = archivist_result.get("novelty", "KNOWN")
+            if novelty_category.startswith("REPHRASING_OF"):
+                multiplier = 0.1
+            elif novelty_category == "PHENOMENAL":
+                multiplier = 0.9
+            elif novelty_category == "NOVEL":
+                multiplier = 0.6
+            else:  # KNOWN
+                multiplier = 0.3
+            edge_data["novelty_weight"] = round(base_weight * multiplier, 3)
 
         self._save()
         _logger.info(f"Archivist updated node {node_id}: novelty={novelty} score={novelty_score}")

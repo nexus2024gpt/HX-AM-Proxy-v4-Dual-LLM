@@ -128,6 +128,11 @@ class Archivist:
         artifact["last_archivist_update"] = datetime.now(timezone.utc).isoformat()
         artifact_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2))
 
+        # Защита от self-ссылки в linked_to
+        links = result.get("linked_to") or []
+        if artifact_id in links:
+            result["linked_to"] = [link for link in links if link != artifact_id]
+
         # Обновление графа
         self.graph.update_with_archivist(artifact_id, result)
 
@@ -231,10 +236,12 @@ class Archivist:
         Возвращает ближайших соседей БЕЗ самого артефакта.
         Обогащает каждого соседа domain_distance относительно текущего домена.
         """
-        raw = self.space.nearest_by_vec(embedding, top_k=top_k + 2, threshold=0.0)
-
-        # Удаляем сам артефакт
-        filtered = [r for r in raw if r["id"] != artifact_id][:top_k]
+        filtered = self.graph.get_similar_nodes(
+            embedding,
+            self.space,
+            top_k=top_k,
+            exclude_id=artifact_id,
+        )
 
         # Обогащаем domain_distance
         try:
