@@ -249,6 +249,37 @@ function modelBadge(model) {
 }
 
 // ══════════════════════
+// ARCHIVIST PANEL
+// ══════════════════════
+function archivistPanel(a) {
+  const noveltyColor = {
+    'PHENOMENAL': '#22d3ee',
+    'NOVEL':      '#4ade80',
+    'KNOWN':      '#94a3b8',
+  };
+  const novelty = a.novelty || '—';
+  const isRephrasing = novelty.startsWith('REPHRASING_OF');
+  const nc = isRephrasing ? '#f59e0b' : (noveltyColor[novelty] || '#94a3b8');
+  const mathColor = a.mathematical_verification === 'STRUCTURAL' ? '#4ade80'
+                  : a.mathematical_verification === 'CONTRADICTION' ? '#ef4444' : '#f59e0b';
+  const links = (a.cross_domain_links || []).join(', ') || '—';
+  const tags = (a.suggested_tags || []).map(t =>
+    `<span style="background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .3rem;font-size:.7rem;margin-right:.2rem">${t}</span>`
+  ).join('');
+  const score = typeof a.novelty_score === 'number' ? (a.novelty_score * 100).toFixed(0) + '%' : '—';
+  const conf = typeof a.confidence === 'number' ? (a.confidence * 100).toFixed(0) + '%' : '—';
+  return `<div class="panel" style="border-left-color:#22d3ee;min-width:280px;flex:1">
+    <h3>🗄️ Archivist</h3>
+    <pre style="font-size:.82rem">Новизна: <span style="color:${nc};font-weight:bold">${novelty}</span>
+Верификация: <span style="color:${mathColor}">${a.mathematical_verification || '—'}</span>
+Novelty score: ${score}   Confidence: ${conf}
+Кросс-домен: ${links}
+Reasoning: ${escHtml(a.reasoning_summary || '—')}</pre>
+    ${tags ? '<div style="padding:.5rem 1rem .75rem">' + tags + '</div>' : ''}
+  </div>`;
+}
+
+// ══════════════════════
 // QUERY
 // ══════════════════════
 async function sendQuery() {
@@ -284,12 +315,14 @@ async function sendQuery() {
         <h3>✅ Структура</h3>
         <pre>Тип: <span style="color:${tc}">${s.artifact_type || '—'}</span>
 Stability: ${s.stability || '—'}
+Specificity: ${s.specificity ?? '—'}
 Centrality: ${s.centrality ?? '—'}
 Bridge: ${s.is_bridge ? '✅ ДА' : 'нет'}
 Similar: ${(s.similar_invariants || []).length}
 Phase: ${s.phase_signal?.signal || '—'}
 Сохранён: ${data.saved ? '✅ ДА' : 'нет'}</pre>
-      </div>`;
+      </div>
+      ${data.archivist ? archivistPanel(data.archivist) : ''}`;
   } catch(err) {
     pipeline.innerHTML = `<div style="color:#ef4444;padding:1rem">❌ ${err.message}</div>`;
   } finally {

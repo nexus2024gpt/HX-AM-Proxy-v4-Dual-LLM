@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from llm_client_v_4 import LLMClient
+from archivist import Archivist
 from invariant_engine import SemanticSpace, InvariantGraph, PhaseDetector, process_with_invariants
 
 load_dotenv()
@@ -25,6 +26,7 @@ logger.info("Загрузка графа инвариантов...")
 invariant_graph = InvariantGraph()
 phase_detector = PhaseDetector()
 logger.info("Invariant Engine готов.")
+archivist = Archivist(space=semantic_space, graph=invariant_graph)
 
 
 class QueryRequest(BaseModel):
@@ -171,6 +173,18 @@ Hypothesis:
             "domain": domain, "structural": structural,
         })
         result["artifact"] = artifact_path
+        # Запускаем Archivist — оценка новизны после сохранения
+        try:
+            archivist_result = archivist.process(job_id)
+            result["archivist"] = archivist_result
+            logger.info(
+                f"Job {job_id}: archivist → "
+                f"novelty={archivist_result.get('novelty')} "
+                f"score={archivist_result.get('novelty_score')}"
+            )
+        except Exception as e:
+            logger.warning(f"Job {job_id}: archivist failed — {e}")
+            result["archivist"] = None
 
     log_history({
         "time": time.time(), "query": req.text, "domain": domain,
