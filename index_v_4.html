@@ -109,6 +109,7 @@ pre{white-space:pre-wrap;word-wrap:break-word}
   <button class="tab-button" onclick="switchTab('graph',this)">🕸️ Граф 3D</button>
   <button class="tab-button" onclick="switchTab('history',this)">📜 История</button>
   <button class="tab-button" onclick="switchTab('artifacts',this)">📦 Артефакты</button>
+  <button class="tab-button" onclick="switchTab('quarantine',this)">🚫 Карантин</button>
 </div>
 
 <!-- ЗАПРОС -->
@@ -172,6 +173,12 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 </div>
 </div>
 
+<!-- КАРАНТИН -->
+<div id="quarantine-tab" class="tab-content">
+  <button class="refresh-btn" onclick="loadQuarantine()">🔄 Обновить</button>
+  <div id="quarantine-list" class="history-list">Загрузка...</div>
+</div>
+
 <!-- Modal -->
 <div id="artifactModal" class="modal">
   <div class="modal-content">
@@ -192,6 +199,7 @@ function switchTab(name, btn) {
   document.getElementById(name + '-tab').classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'artifacts') loadArtifacts();
+  if (name === 'quarantine') loadQuarantine();
   if (name === 'graph') loadGraph();
 }
 
@@ -298,6 +306,16 @@ async function sendQuery() {
       body: JSON.stringify({text, domain: 'general', x_coordinate: 500})
     });
     const data = await res.json();
+    // Отклонённый запрос
+    if (data.rejected) {
+      pipeline.innerHTML = `<div style="background:#1e293b;border-left:4px solid #ef4444;border-radius:12px;padding:1.25rem 1.5rem;color:#ef4444">
+        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:.5rem">🚫 Запрос отклонён</div>
+        <div style="color:#94a3b8;font-size:.85rem;margin-bottom:.25rem">Stage: <span style="color:#fbbf24">${data.stage}</span></div>
+        <div style="color:#94a3b8;font-size:.85rem;margin-bottom:.25rem">Code: <span style="color:#f87171">${data.failure_code}</span></div>
+        <div style="color:#cbd5e1;font-size:.85rem;margin-top:.5rem">${escHtml(data.reason || '')}</div>
+      </div>`;
+      return;
+    }
     const s = data.structural || {};
     const tc = typeColor(s.artifact_type);
     const ragCtx = (data.rag_context || []);
@@ -594,6 +612,46 @@ function lerpColor(a, b, t) {
 function escHtml(str) {
   return String(str).replace(/[&<>"']/g, m =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function loadQuarantine() {
+  const container = document.getElementById('quarantine-list');
+  container.innerHTML = 'Загрузка...';
+  try {
+    const res = await fetch('/quarantine?limit=30');
+    const data = await res.json();
+    const items = data.quarantine || [];
+    if (!items.length) {
+      container.innerHTML = '<p style="color:#4ade80;text-align:center;padding:2rem">✅ Карантин пуст — все запросы прошли валидацию</p>';
+      return;
+    }
+    const codeColor = {
+      'GEN_ALL_PROVIDERS_FAILED': '#ef4444',
+      'VER_ALL_PROVIDERS_FAILED': '#ef4444',
+      'GEN_EMPTY_JSON': '#f87171',
+      'VER_EMPTY_JSON': '#f87171',
+      'GEN_NO_HYPOTHESIS': '#fbbf24',
+      'GEN_INVALID_B_SYNC': '#fbbf24',
+      'VER_NO_VERDICT': '#fbbf24',
+      'PIPELINE_EXCEPTION': '#a78bfa',
+    };
+    container.innerHTML = items.slice().reverse().map(e => {
+      const t = new Date(e.time * 1000).toLocaleString('ru-RU');
+      const cc = codeColor[e.failure_code] || '#94a3b8';
+      const rb = (e.rollback_actions || []).join(', ') || '—';
+      return `<div class="history-item" style="border-left-color:#ef4444">
+        <div class="history-timestamp">🕐 ${t} · stage: <b style="color:#fbbf24">${e.stage}</b></div>
+        <div style="font-size:.85rem;color:#e2e8f0;margin:.3rem 0">${escHtml((e.query||'').substring(0,100))}</div>
+        <div style="font-size:.75rem">
+          <span style="background:${cc}22;color:${cc};border-radius:4px;padding:.1rem .4rem">${e.failure_code}</span>
+        </div>
+        <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem">${escHtml(e.reason||'')}</div>
+        ${rb !== '—' ? '<div style="font-size:.7rem;color:#475569;margin-top:.25rem">Rollback: ' + escHtml(rb) + '</div>' : ''}
+      </div>`;
+    }).join('');
+  } catch(err) {
+    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
+  }
 }
 
 window.onload = () => { loadHistory(); loadArtifacts(); };
