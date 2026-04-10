@@ -1,72 +1,90 @@
 
 # 🔮 HX-AM Proxy v4
 
-**Dual-LLM система генерации и верификации гипотез с инвариантным движком.**
+**Dual-LLM система генерации и верификации структурных гипотез с инвариантным движком.**
 
-Groq генерирует структурные гипотезы → Gemini верифицирует → Invariant Engine строит семантический граф и обнаруживает устойчивые паттерны между доменами.
+Groq генерирует гипотезы → Gemini верифицирует через семантическую трансляцию → Invariant Engine строит граф и обнаруживает устойчивые паттерны между доменами → Archivist оценивает новизну.
 
 ---
 
 ## Архитектура
 
 ```
-Запрос пользователя
-       │
-       ▼
- ┌─────────────┐     ┌──────────────┐
- │  Generator  │────▶│   Verifier   │
- │   (Groq)    │     │   (Gemini)   │
- └─────────────┘     └──────┬───────┘
-       │                    │
-       └────────┬───────────┘
-                ▼
-       ┌─────────────────┐
-       │ Invariant Engine│
-       │  SemanticSpace  │  ← sentence-transformers (локально)
-       │  InvariantGraph │  ← networkx
-       │  PhaseDetector  │  ← scipy
-       └────────┬────────┘
-                ▼
-         artifacts/ + graph
+[QuestionGenerator]  ← Mode A (новый вопрос) | Mode B (уточнение) | ручной ввод
+        │
+[PipelineGuard]      ← валидация до изменения состояния
+        │
+  Generator (Groq)          Verifier (Gemini)
+  Groq → OpenRouter → HF    Gemini → OpenRouter → HF
+        │                         │
+        └──────────┬──────────────┘
+                   ▼
+          [Invariant Engine]
+          SemanticSpace  ← эмбеддинги, cosine similarity
+          InvariantGraph ← граф с анти-весами
+          PhaseDetector  ← фазовые переходы
+                   │
+          [Archivist]    ← PHENOMENAL | NOVEL | KNOWN | REPHRASING
+                   │
+          artifacts/ + graph
 ```
 
-### Три слоя Invariant Engine
+### Формула веса ребра (анти-шум)
 
-| Слой                                            | Класс         | Что делает                                                                     |
-| --------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------- |
-| Семантическое пространство | `SemanticSpace`  | Эмбеддинги гипотез, косинусное сходство              |
-| Структурный граф                     | `InvariantGraph` | Узлы-артефакты, рёбра с весом `similarity × domain_distance` |
-| Детектор фазовых переходов  | `PhaseDetector`  | Обнаружение `stable_cluster`, σ-примитивов                      |
+```
+weight = similarity × (1 + domain_distance) × specificity
+```
+
+* `domain_distance` — расстояние между доменами в пространстве эмбеддингов
+* `specificity` — косинусное расстояние от центроида своего домена
+* Физика↔поэзия с уникальной структурой = **максимальный вес**
+* Банальное в одном домене = **минимальный вес**
+
+### Step 0 — обязательная семантическая трансляция
+
+Верификатор перед любой критикой **обязан** перевести механизм на язык чужого домена. Если механизм выживает — он `STRUCTURAL` (настоящий инвариант). Если рассыпается — `TERMINOLOGICAL` (псевдоаналогия).
 
 ### Типы артефактов
 
-| Тип                        | Условие                                | Значение                                                  |
-| ----------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| `noise`                     | `isolated`+ низкий b_sync             | Случайный паттерн                                 |
-| `weak_pattern`              | Один сосед с sim > 0.8              | Один прецедент, ждёт подтверждения  |
-| `hyx-artifact`              | `stable_cluster`                            | Устойчивая структура                           |
-| `hyx-portal`                | Узел-мост в графе               | Связывает разные кластеры                  |
-| `sigma_primitive_candidate` | Фазовый переход (density > 0.6) | Кандидат в универсальный инвариант |
+| Тип                        | Условие                           | Значение                               |
+| ----------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| `noise`                     | isolated + низкий b_sync           | Случайный паттерн              |
+| `weak_pattern`              | Один сосед sim > 0.8            | Ждёт подтверждения            |
+| `hyx-artifact`              | stable_cluster                           | Устойчивый инвариант        |
+| `hyx-portal`                | Мост между кластерами | Потенциальный Σ-примитив |
+| `sigma_primitive_candidate` | Phase density > 0.6                      | Фазовый переход                  |
+
+### Archivist — правила новизны
+
+```
+RULE 1 PHENOMENAL: sim > 0.72 + domain_distance > 0.6 + STRUCTURAL
+RULE 2 REPHRASING: sim > 0.92 + domain_distance < 0.15 + same domain
+RULE 3 NOVEL:      sim > 0.65 + новый домен или комбинация
+RULE 4 KNOWN:      всё остальное
+```
 
 ---
 
 ## Стек
 
 ```
-FastAPI + Uvicorn       — HTTP сервер
-Groq API                — генератор гипотез (llama3-70b-8192)
-Gemini API              — верификатор (gemini-1.5-flash)
-sentence-transformers   — локальные эмбеддинги (all-MiniLM-L6-v2, ~90 МБ)
-networkx                — граф инвариантов в памяти
-numpy / scipy           — матричные операции, кластеризация
-D3.js                   — интерактивная визуализация графа (браузер)
+FastAPI + Uvicorn          — HTTP сервер
+Groq API                   — генератор (llama-3.3-70b-versatile)
+Gemini API                 — верификатор (gemini-2.5-flash)
+OpenRouter                 — резервный 1 для обоих
+HuggingFace Inference API  — резервный 2 (Mistral-7B-Instruct-v0.3)
+sentence-transformers      — локальные эмбеддинги (all-MiniLM-L6-v2, ~90 МБ)
+networkx                   — граф инвариантов
+numpy / scipy              — матричные операции, кластеризация
+3d-force-graph             — интерактивная 3D визуализация (WebGL)
 ```
 
-Никаких баз данных. Персистентность — три файла:
+Никаких баз данных. Персистентность — flat files:
 
 * `artifacts/semantic_index.jsonl` — эмбеддинги
 * `artifacts/invariant_graph.json` — граф
-* `chat_history/history.jsonl` — история запросов
+* `chat_history/history.jsonl` — успешные запросы
+* `chat_history/quarantine.jsonl` — отклонённые с кодами причин
 
 ---
 
@@ -75,43 +93,34 @@ D3.js                   — интерактивная визуализация 
 ### Требования
 
 * Python 3.10+
-* API ключи: Groq и Google Gemini
+* API ключи: Groq, Google Gemini (+ опционально OpenRouter, HuggingFace)
 
 ### Быстрый старт (PowerShell)
 
 ```powershell
-# 1. Клонировать репозиторий
-git clone <repo-url>
+git clone https://github.com/nexus2024gpt/HX-AM-Proxy-v4-Dual-LLM
 cd "HX-AM Proxy v4"
-
-# 2. Разрешить выполнение скриптов (один раз)
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-# 3. Установить зависимости и запустить
 .\install_and_run.ps1
 ```
 
-### Ручная установка
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python hxam_v_4_server.py
-```
-
-### Переменные окружения
-
-Создай файл `.env` в корне проекта:
+### Переменные окружения (.env)
 
 ```env
-GENERATOR_API_KEY=your_groq_api_key
-GENERATOR_API_BASE=https://api.groq.com/openai/v1
-GENERATOR_MODEL=llama3-70b-8192
+# Основные
+GENERATOR_API_KEY=your_groq_key
+GENERATOR_MODEL=llama-3.3-70b-versatile
+VERIFIER_API_KEY=your_gemini_key
+VERIFIER_MODEL=gemini-2.5-flash
 
-VERIFIER_API_KEY=your_gemini_api_key
-VERIFIER_API_BASE=https://generativelanguage.googleapis.com/v1beta
-VERIFIER_MODEL=gemini-1.5-flash
+# Резервный 1 (OpenRouter)
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_GEN_MODEL=anthropic/claude-3-haiku
+OPENROUTER_VER_MODEL=anthropic/claude-3-haiku
+
+# Резервный 2 (HuggingFace)
+HF_API_KEY=your_hf_token
+HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 ```
 
 ---
@@ -122,57 +131,70 @@ VERIFIER_MODEL=gemini-1.5-flash
 
 ### Вкладки интерфейса
 
-**💬 Запрос** — отправить гипотезу. В ответе видны три панели: генератор, верификатор, структурный анализ (тип артефакта, stability, centrality, bridge).
+**💬 Запрос** — три режима ввода:
 
-**🕸️ Граф** — интерактивная D3.js визуализация инвариантного графа. Zoom/pan, перетаскивание узлов, hover-тултипы, клик по узлу открывает детали. Цвет узла = тип стабильности.
+* ✏️ **Ручной ввод** — как обычно
+* 🎲 **Новый вопрос** — генерирует вопрос избегая доминирующих доменов (1 LLM-запрос)
+* 🔧 **Уточнить артефакт** — выбор из списка WEAK-артефактов, генерирует уточняющий вопрос с [REF:id]
 
-**📜 История** — последние 20 запросов с метаданными.
+Панель результатов: Генератор · Верификатор · Структура · Archivist.
+Бейджи моделей: зелёный = основная, оранжевый = фолбэк.
 
-**📦 Артефакты** — сохранённые гипотезы (VALID с confidence > 0.6 или WEAK с b_sync > 0.7).
+**🕸️ Граф 3D** — WebGL force-directed граф. Orbit-контроль, hover-тултипы, клик по узлу.
+
+**📜 История** — последние 20 успешных запросов (кликабельно).
+
+**📦 Артефакты** — сохранённые гипотезы (🌀 = hyx-portal).
+
+**🚫 Карантин** — отклонённые запросы с кодами причин.
 
 ### API эндпоинты
 
-| Метод | Путь             | Описание                                                         |
-| ---------- | -------------------- | ------------------------------------------------------------------------ |
-| `POST`   | `/query`           | Отправить запрос                                          |
-| `GET`    | `/graph`           | Статистика графа (узлы, рёбра, кластеры) |
-| `GET`    | `/graph/data`      | Полные данные графа для D3                           |
-| `GET`    | `/phase`           | Текущий фазовый сигнал                               |
-| `GET`    | `/history`         | Последние 20 записей истории                      |
-| `GET`    | `/artifacts`       | Список артефактов                                        |
-| `GET`    | `/artifact/{name}` | Конкретный артефакт                                    |
+| Метод | Путь                   | Описание                       |
+| ---------- | -------------------------- | -------------------------------------- |
+| `POST`   | `/query`                 | Основной пайплайн      |
+| `GET`    | `/rag/context?text=`     | RAG lookup                             |
+| `GET`    | `/graph/data`            | Данные графа для D3      |
+| `GET`    | `/phase`                 | Фазовый сигнал            |
+| `GET`    | `/history`               | Последние 20 запросов |
+| `GET`    | `/artifacts`             | Список артефактов      |
+| `GET`    | `/quarantine`            | Карантинный лог          |
+| `GET`    | `/question/suggest`      | Mode A — новый вопрос      |
+| `GET`    | `/question/clarify/{id}` | Mode B — уточнение           |
+| `GET`    | `/question/candidates`   | Кандидаты для Mode B       |
 
 ---
 
 ## Структура проекта
 
 ```
-├── hxam_v_4_server.py        — FastAPI сервер, оркестрация пайплайна
-├── invariant_engine.py       — SemanticSpace, InvariantGraph, PhaseDetector
-├── llm_client_v_4.py         — HTTP клиент для Groq и Gemini
-├── index_v_4.html            — UI (D3.js граф + вкладки)
-├── install_and_run.ps1       — скрипт установки и запуска
+├── hxam_v_4_server.py
+├── invariant_engine.py
+├── llm_client_v_4.py
+├── archivist.py
+├── pipeline_guard.py
+├── question_generator.py
+├── index_v_4.html
+├── install_and_run.ps1
 ├── requirements.txt
-├── .env                      — API ключи (не коммитить)
+├── .env
 ├── prompts/
-│   ├── generator_prompt.txt  — промпт генератора (с domain и b_sync)
-│   └── verifier_prompt.txt   — промпт верификатора
-├── artifacts/
-│   ├── semantic_index.jsonl  — индекс эмбеддингов (авто)
-│   ├── invariant_graph.json  — граф (авто)
-│   └── *.json                — сохранённые артефакты
-└── chat_history/
-    └── history.jsonl         — история запросов (авто)
+│   ├── generator_prompt.txt
+│   ├── verifier_prompt.txt
+│   ├── archivist_prompt.txt
+│   └── question_generator_prompt.txt
+├── tools/
+│   └── run_archivist.ps1
+└── docs/
+    └── SESSION_CONTEXT.md
 ```
 
 ---
 
-## Как работает кластеризация
+## Batch-обработка архива
 
-1. Каждая гипотеза кодируется в вектор через `all-MiniLM-L6-v2`
-2. Косинусное сходство > 0.65 → потенциальное ребро в граф
-3. Вес ребра = `similarity × domain_distance` — высокий вес означает семантически близкие гипотезы из **разных** доменов, что и является сигналом инварианта
-4. Компоненты связности → кластеры; мосты → порталы
-5. Если плотность последних 10 артефактов > 0.6 → фазовый переход → `sigma_primitive_candidate`
-
-Для появления `stable_cluster` нужно 3–5 запросов на близкую тему из разных доменов. Домен определяется **генератором автоматически** и влияет на вес рёбер графа.
+```powershell
+.\tools\run_archivist.ps1 --all --dry-run   # preview
+.\tools\run_archivist.ps1 --all             # запуск
+.\tools\run_archivist.ps1 406f650a08aa      # один артефакт
+```
