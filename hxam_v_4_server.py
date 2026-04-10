@@ -2,7 +2,7 @@
 import os, json, time, hashlib, logging, re
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -91,7 +91,6 @@ def log_history(entry: Dict[str, Any]):
 
 
 def _rejected_response(job_id: str, code: str, reason: str, stage: str) -> dict:
-    """Стандартный ответ при отказе — без данных, только флаг."""
     return {
         "job_id": job_id,
         "rejected": True,
@@ -106,6 +105,59 @@ def _rejected_response(job_id: str, code: str, reason: str, stage: str) -> dict:
     }
 
 
+# ══════════════════════════════════════════════
+# RAG ANTI-AMPLIFICATION FILTER  (v4.2)
+# ══════════════════════════════════════════════
+
+def filter_rag_diversity(
+    similar: List[dict],
+    max_per_domain: int = 1,
+    sim_cap: float = 0.88,
+) -> List[dict]:
+    """
+    Фильтрует RAG-контекст против петли усиления шаблонов.
+
+    Два правила:
+      1. sim >= sim_cap (0.88) → отсечь.
+         Если инвариант настолько похож на запрос, генератор почти
+         гарантированно скопирует терминологию, а не структуру.
+
+      2. max_per_domain = 1.
+         Не показывать 2+ инварианта из одного домена — это усиливает
+         доминирующий шаблон и блокирует разнообразие.
+
+    Возвращает отфильтрованный список (может быть пустым — это нормально).
+    """
+    seen_domains: dict = {}
+    result = []
+    for s in similar:
+        sim = s.get("similarity", 0.0)
+        domain = s.get("domain", "general")
+
+        if sim >= sim_cap:
+            logger.debug(
+                f"RAG filter: dropped {s['id'][:8]} sim={sim} >= cap={sim_cap}"
+            )
+            continue
+
+        if seen_domains.get(domain, 0) >= max_per_domain:
+            logger.debug(
+                f"RAG filter: dropped {s['id'][:8]} domain={domain} (already have {max_per_domain})"
+            )
+            continue
+
+        seen_domains[domain] = seen_domains.get(domain, 0) + 1
+        result.append(s)
+
+    if len(similar) != len(result):
+        logger.info(
+            f"RAG filter: {len(similar)} → {len(result)} "
+            f"(dropped {len(similar) - len(result)}: "
+            f"sim_cap={sim_cap}, max_per_domain={max_per_domain})"
+        )
+    return result
+
+
 def process_query(req: QueryRequest):
     client = LLMClient()
     job_id = hashlib.md5(f"{req.text}{time.time()}".encode()).hexdigest()[:12]
@@ -117,7 +169,11 @@ def process_query(req: QueryRequest):
         # ══════════════════════════════════════
         # ЭТАП 1 — ГЕНЕРАЦИЯ
         # ══════════════════════════════════════
-        rag_similar = semantic_space.nearest(req.text, top_k=3, threshold=0.55)
+        rag_raw = semantic_space.nearest(req.text, top_k=5, threshold=0.55)
+
+        # Фильтр против петли усиления шаблонов
+        rag_similar = filter_rag_diversity(rag_raw, max_per_domain=1, sim_cap=0.88)
+
         rag_block = ""
         if rag_similar:
             rag_block = "\n\nРелевантные инварианты из базы знаний системы:\n"
@@ -131,10 +187,12 @@ X: {req.x_coordinate}
 User input:
 {req.text}
 """
-        logger.info(f"Job {job_id}: generating... rag_hits={len(rag_similar)}")
+        logger.info(
+            f"Job {job_id}: generating... "
+            f"rag_raw={len(rag_raw)} rag_filtered={len(rag_similar)}"
+        )
         gen_raw, gen_model = client.generate(gen_input)
 
-        # Валидация сырого ответа
         vr = guard.validate_gen_raw(gen_raw, gen_model)
         if not vr:
             quarantine.record(job_id, req.text, vr.code, vr.reason,
@@ -143,7 +201,6 @@ User input:
 
         gen = extract_json(gen_raw)
 
-        # Валидация распарсенного JSON
         vr = guard.validate_gen(gen, gen_model)
         if not vr:
             quarantine.record(job_id, req.text, vr.code, vr.reason,
@@ -164,7 +221,6 @@ Hypothesis:
         logger.info(f"Job {job_id}: verifying...")
         ver_raw, ver_model = client.verify(ver_input, context=req.text)
 
-        # Валидация сырого ответа верификатора
         vr = guard.validate_ver_raw(ver_raw, ver_model)
         if not vr:
             quarantine.record(job_id, req.text, vr.code, vr.reason,
@@ -173,7 +229,6 @@ Hypothesis:
 
         ver = extract_json(ver_raw)
 
-        # Валидация распарсенного JSON верификатора
         vr = guard.validate_ver(ver, ver_model)
         if not vr:
             quarantine.record(job_id, req.text, vr.code, vr.reason,
@@ -201,13 +256,13 @@ Hypothesis:
             "artifact": None,
             "domain": domain,
             "rag_context": rag_similar,
+            "rag_dropped": len(rag_raw) - len(rag_similar),
             "gen_model": gen_model,
             "ver_model": ver_model,
         }
 
         # ══════════════════════════════════════
         # ЭТАП 4 — INVARIANT ENGINE
-        # Регистрируем снапшот ДО добавления
         # ══════════════════════════════════════
         rollback.snapshot_space(len(semantic_space.vectors))
         rollback.register_graph_node(job_id)
@@ -218,16 +273,18 @@ Hypothesis:
             space=semantic_space, graph=invariant_graph, detector=phase_detector,
         )
         structural = result.get("structural", {})
+        phase_signal = structural.get("phase_signal", {})
         logger.info(
             f"Job {job_id}: engine OK → type={structural.get('artifact_type')} "
-            f"stability={structural.get('stability')} domain={domain}"
+            f"stability={structural.get('stability')} domain={domain} "
+            f"phase={phase_signal.get('signal')} "
+            f"unique_domains={phase_signal.get('unique_domains')}"
         )
 
         # ══════════════════════════════════════
         # ЭТАП 5 — СОХРАНЕНИЕ АРТЕФАКТОВ
         # ══════════════════════════════════════
 
-        # hyx-portal.json
         if structural.get("is_bridge"):
             portal_path = Path("artifacts") / f"{job_id}.hyx-portal.json"
             portal_data = {
@@ -238,7 +295,7 @@ Hypothesis:
                 "hypothesis": gen.get("hypothesis", ""),
                 "centrality": structural.get("centrality", 0),
                 "similar_invariants": structural.get("similar_invariants", []),
-                "phase_signal": structural.get("phase_signal", {}),
+                "phase_signal": phase_signal,
             }
             portal_path.write_text(json.dumps(portal_data, indent=2, ensure_ascii=False))
             rollback.register_file(portal_path)
@@ -252,7 +309,6 @@ Hypothesis:
             rollback.register_file(artifact_file)
             result["artifact"] = str(artifact_file)
 
-            # Archivist
             try:
                 archivist_result = archivist.process(job_id)
                 result["archivist"] = archivist_result
@@ -266,20 +322,20 @@ Hypothesis:
                 result["archivist"] = None
 
         # ══════════════════════════════════════
-        # УСПЕХ — история только здесь
+        # УСПЕХ
         # ══════════════════════════════════════
         log_history({
             "time": time.time(), "query": req.text, "domain": domain,
             "gen": result["generation"], "ver": ver,
             "saved": save, "structural": structural,
             "rag_context": rag_similar,
+            "rag_dropped": len(rag_raw) - len(rag_similar),
         })
 
         rollback.clear()
         return result
 
     except Exception as exc:
-        # Непредвиденное исключение — откат всего
         logger.error(f"Job {job_id}: unexpected exception — {exc}", exc_info=True)
         actions = rollback.rollback(semantic_space, invariant_graph)
         quarantine.record(
@@ -303,14 +359,19 @@ def query(req: QueryRequest):
 
 @app.get("/quarantine")
 def get_quarantine(limit: int = 20):
-    """Последние отклонённые запросы с кодами причин."""
     return {"quarantine": quarantine.recent(limit)}
 
 
 @app.get("/rag/context")
 def rag_context(text: str, top_k: int = 3):
     similar = semantic_space.nearest(text, top_k=top_k, threshold=0.55)
-    return {"similar": similar, "count": len(similar)}
+    filtered = filter_rag_diversity(similar, max_per_domain=1, sim_cap=0.88)
+    return {
+        "similar": filtered,
+        "similar_raw": similar,
+        "count": len(filtered),
+        "dropped": len(similar) - len(filtered),
+    }
 
 
 @app.get("/history")
@@ -412,7 +473,6 @@ def ui():
 
 @app.get("/question/suggest")
 def suggest_question():
-    """Mode A — предложить новый вопрос для генератора инвариантов."""
     try:
         result = question_gen.suggest_novel()
         return result
@@ -423,7 +483,6 @@ def suggest_question():
 
 @app.get("/question/clarify/{artifact_id}")
 def clarify_artifact(artifact_id: str):
-    """Mode B — уточняющий вопрос для конкретного артефакта."""
     try:
         result = question_gen.suggest_clarification(artifact_id)
         return result
@@ -434,9 +493,7 @@ def clarify_artifact(artifact_id: str):
 
 @app.get("/question/candidates")
 def clarification_candidates():
-    """Список артефактов требующих уточнения (для выпадающего списка UI)."""
     return {"candidates": question_gen.list_clarification_candidates()}
-
 
 
 if __name__ == "__main__":

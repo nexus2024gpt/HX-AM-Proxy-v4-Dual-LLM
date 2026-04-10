@@ -177,14 +177,7 @@ class InvariantGraph:
     # ── Методы для Archivist ──────────────────────────────
 
     def get_similar_nodes(self, embedding: np.ndarray, space: "SemanticSpace", top_k: int = 8, exclude_id: str = None) -> list:
-        """
-        Возвращает топ-K ближайших узлов графа с их атрибутами и метриками ребра.
-        Использует SemanticSpace для косинусного поиска, затем обогащает
-        данными из графа (domain_distance, weight).
-        """
-        # Ищем ближайших по семантике (без порога — берём топ)
         candidates = space.nearest_by_vec(embedding, top_k=top_k * 2, threshold=0.0)
-
         results = []
         for c in candidates:
             if exclude_id and c["id"] == exclude_id:
@@ -195,7 +188,7 @@ class InvariantGraph:
                 "id": node_id,
                 "domain": c.get("domain", node_attrs.get("domain", "general")),
                 "similarity": c["similarity"],
-                "domain_distance": 0.0,   # заполнится в archivist по домену
+                "domain_distance": 0.0,
                 "weight": 0.0,
                 "b_sync": c.get("b_sync", node_attrs.get("b_sync", 0.0)),
                 "stability": node_attrs.get("stability", "unknown"),
@@ -207,20 +200,14 @@ class InvariantGraph:
         return results
 
     def get_subgraph(self, node_id: str, depth: int = 2) -> dict:
-        """
-        Возвращает ego-граф вокруг узла глубиной depth.
-        Для Archivist: контекст кластеров и мостов вокруг нового артефакта.
-        """
         if node_id not in self.G:
             return {"nodes": [], "edges": [], "clusters": [], "bridges": []}
-
         ego = nx.ego_graph(self.G, node_id, radius=depth)
         clusters = [list(c) for c in nx.connected_components(ego) if len(c) >= 2]
         try:
             bridges = list(nx.bridges(ego))
         except Exception:
             bridges = []
-
         nodes = [
             {
                 "id": n,
@@ -246,22 +233,14 @@ class InvariantGraph:
         }
 
     def update_with_archivist(self, node_id: str, archivist_result: dict):
-        """
-        Обновляет атрибуты узла и novelty_weight на рёбрах.
-        Вызывается после получения результата от Archivist.
-        """
         if node_id not in self.G:
             return
-
         novelty_score = archivist_result.get("novelty_score", 0.6)
         novelty = archivist_result.get("novelty", "KNOWN")
         math_ver = archivist_result.get("mathematical_verification", "TERMINOLOGICAL")
-
-        # Обновляем атрибуты узла
         self.G.nodes[node_id]["novelty"] = novelty
         self.G.nodes[node_id]["novelty_score"] = novelty_score
         self.G.nodes[node_id]["math_verification"] = math_ver
-
         tags = archivist_result.get("suggested_tags") or []
         normalized_tags = []
         for tag in tags:
@@ -270,13 +249,10 @@ class InvariantGraph:
             else:
                 normalized_tags.append(tag)
         self.G.nodes[node_id]["suggested_tags"] = normalized_tags
-
         linked = archivist_result.get("linked_to") or []
         if node_id in linked:
             linked = [link for link in linked if link != node_id]
         self.G.nodes[node_id]["linked_to"] = linked
-
-        # Обновляем novelty_weight на всех рёбрах узла
         for neighbor in list(self.G.neighbors(node_id)):
             edge_data = self.G[node_id][neighbor]
             base_weight = edge_data.get("weight", 0.5)
@@ -287,18 +263,14 @@ class InvariantGraph:
                 multiplier = 0.9
             elif novelty_category == "NOVEL":
                 multiplier = 0.6
-            else:  # KNOWN
+            else:
                 multiplier = 0.3
             edge_data["novelty_weight"] = round(base_weight * multiplier, 3)
-
         self._save()
         _logger.info(f"Archivist updated node {node_id}: novelty={novelty} score={novelty_score}")
 
     def save_graph(self):
-        """Публичный алиас для _save() — используется Archivist."""
         self._save()
-
-    # ── Внутренние методы ────────────────────────────────
 
     def _save(self):
         data = nx.node_link_data(self.G)
@@ -327,23 +299,15 @@ class PhaseDetector:
         graph: InvariantGraph,
         specificity: float = 0.5,
     ) -> tuple:
-        """
-        Определяет устойчивость инварианта.
-        Кластер из банальных гипотез (avg_specificity < 0.3) не считается устойчивым.
-        """
         if len(similar_artifacts) == 0:
             return False, "isolated"
-
         if len(similar_artifacts) == 1:
             sim = similar_artifacts[0]["similarity"]
             return sim > 0.80, "weak_pattern"
-
         similar_specs = [a.get("specificity", 0.5) for a in similar_artifacts]
         avg_specificity = (specificity + sum(similar_specs)) / (len(similar_artifacts) + 1)
-
         if avg_specificity < 0.3:
             return False, "low_specificity_cluster"
-
         vectors = np.array([
             _embedder.encode(a["invariant"]) for a in similar_artifacts
         ])
@@ -352,14 +316,35 @@ class PhaseDetector:
             unique_clusters = len(set(labels))
         except Exception:
             return False, "mixed_patterns"
-
         if unique_clusters == 1:
             return True, "stable_cluster"
         return False, "mixed_patterns"
 
     def detect_phase_transition(self, space: SemanticSpace, window: int = 10) -> dict:
+        """
+        Определяет фазовый переход в семантическом пространстве.
+
+        КРИТИЧЕСКОЕ УЛУЧШЕНИЕ v4.2:
+        Высокая плотность (density > 0.60) сама по себе не является сигналом
+        фазового перехода — она может означать template_loop (генератор воспроизводит
+        один шаблон в разных доменных обёртках).
+
+        Различение:
+          sigma_primitive_candidate — density > 0.60 + unique_domains >= 3
+            (плотность из РАЗНЫХ доменов = реальный кросс-доменный инвариант)
+          template_loop             — density > 0.60 + unique_domains <= 2
+            (плотность из ОДНОГО шаблона = петля усиления через RAG)
+          noise                     — density <= 0.60
+        """
         if len(space.vectors) < window:
-            return {"transition": False, "density": 0.0, "window": window, "signal": "noise"}
+            return {
+                "transition": False,
+                "density": 0.0,
+                "window": window,
+                "signal": "noise",
+                "unique_domains": 0,
+                "domain_entropy": 0.0,
+            }
 
         recent = np.array(space.vectors[-window:])
         norms = np.linalg.norm(recent, axis=1, keepdims=True)
@@ -369,11 +354,37 @@ class PhaseDetector:
         np.fill_diagonal(sim_matrix, 0)
         density = sim_matrix.sum() / (window * (window - 1))
 
+        # Доменное разнообразие в окне
+        recent_meta = space.meta[-window:]
+        domains = [m.get("domain", "general") for m in recent_meta]
+        unique_domains = len(set(domains))
+        domain_entropy = round(unique_domains / window, 3)
+
+        if density > 0.60:
+            if unique_domains >= 3:
+                # Высокая плотность из разных доменов — реальный кросс-доменный сигнал
+                signal = "sigma_primitive_candidate"
+                transition = True
+            else:
+                # Высокая плотность из 1-2 доменов — петля шаблона через RAG
+                signal = "template_loop"
+                transition = False
+                _logger.warning(
+                    f"PhaseDetector: template_loop detected — "
+                    f"density={density:.3f} but unique_domains={unique_domains} "
+                    f"(domains: {set(domains)})"
+                )
+        else:
+            signal = "noise"
+            transition = False
+
         return {
-            "transition": bool(density > 0.60),
+            "transition": transition,
             "density": round(float(density), 3),
             "window": window,
-            "signal": "sigma_primitive_candidate" if density > 0.60 else "noise",
+            "signal": signal,
+            "unique_domains": unique_domains,
+            "domain_entropy": domain_entropy,
         }
 
     def log_phenomenal(self, node_id: str, reason: str):
@@ -403,20 +414,16 @@ def process_with_invariants(
     b_sync = float(gen.get("b_sync", 0.0))
     domain = result.get("domain", "general")
 
-    # Кодируем вектор ДО добавления в space
     current_vec = _embedder.encode(invariant)
     spec = space.specificity(current_vec, domain)
 
-    # Извлечение survival из перевода верификатора
     translation = ver.get("translation", {})
     survival = translation.get("survival", "UNKNOWN") if isinstance(translation, dict) else "UNKNOWN"
     if survival == "UNKNOWN":
         _logger.warning(f"Job {job_id}: verifier did not return translation — Step 0 skipped")
 
-    # 1. Найти похожие инварианты
     similar = space.nearest(invariant, threshold=0.65)
 
-    # 2. Проверить устойчивость
     is_stable, stability_type = detector.is_stable_invariant(
         invariant, similar, graph, specificity=spec
     )
@@ -425,7 +432,6 @@ def process_with_invariants(
         is_stable = False
         stability_type = "terminological"
 
-    # 3. Добавить в пространство и граф
     space.add(job_id, invariant, domain, b_sync)
     graph.add_node(
         job_id,
@@ -437,7 +443,6 @@ def process_with_invariants(
         translation=translation.get("translated_mechanism", "") if isinstance(translation, dict) else "",
     )
 
-    # 4. Рёбра с анти-весами
     for s in similar:
         try:
             domain_vec = _embedder.encode(domain)
@@ -445,10 +450,8 @@ def process_with_invariants(
             dist = round(float(cosine(domain_vec, neighbor_domain_vec)), 3)
         except Exception:
             dist = 0.0
-
         neighbor_spec = graph.G.nodes.get(s["id"], {}).get("specificity", 0.5)
         edge_spec = round((spec + neighbor_spec) / 2, 3)
-
         graph.add_edge(
             job_id, s["id"],
             similarity=s["similarity"],
@@ -456,13 +459,12 @@ def process_with_invariants(
             specificity=edge_spec,
         )
 
-    # 5. Фазовый переход
     phase = detector.detect_phase_transition(space)
 
-    # 6. Тип артефакта
     bridge_nodes = {n for e in graph.get_bridges() for n in e}
     centrality = graph.node_centrality(job_id)
 
+    # artifact_type: template_loop не даёт sigma даже при высокой плотности
     if phase["signal"] == "sigma_primitive_candidate":
         artifact_type = "sigma_primitive_candidate"
     elif job_id in bridge_nodes:
@@ -474,11 +476,9 @@ def process_with_invariants(
     else:
         artifact_type = "noise"
 
-    # 7. Корректировка b_sync
     if (not is_stable or survival == "TERMINOLOGICAL") and b_sync > 0.50:
         result["generation"] = {**gen, "b_sync": round(b_sync * 0.75, 2)}
 
-    # 8. Результат
     result["structural"] = {
         "similar_invariants": similar,
         "stability": stability_type,

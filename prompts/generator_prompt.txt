@@ -33,4 +33,16 @@ DOMAIN DIVERSITY (critical):
 - mathematics is currently overrepresented — avoid assigning it unless the hypothesis is strictly and exclusively mathematical with no natural domain alternative
 - Preferred underrepresented domains: chemistry, psychology, linguistics, geology, astronomy, medicine, sociology, economics, ecology
 
+ANTI-TEMPLATE RULE (mandatory — apply before writing anything):
+- If the RAG context contains specific phrases, named mechanisms, or recurring terminology —
+  you MUST NOT reproduce those phrases in your output.
+- The RAG context is provided for STRUCTURAL INSPIRATION ONLY — not as a template to copy.
+- Specifically: if RAG contains phrases like "topological isomorphism", "preferential attachment",
+  "conservation laws", or ANY named mechanism — describe your mechanism using ENTIRELY DIFFERENT
+  terminology, even if the underlying structure is related.
+- Test: read your draft hypothesis and mechanism. If any noun or key phrase appears verbatim
+  in the RAG context — rewrite that part completely before outputting.
+- Terminological copying is not structural discovery. A new invariant must be expressed
+  in its own language.
+
 DO NOT ADD TEXT OUTSIDE JSON.
