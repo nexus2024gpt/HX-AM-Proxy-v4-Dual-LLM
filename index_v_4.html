@@ -97,6 +97,12 @@ textarea:focus{outline:none;border-color:#6366f1}
 .close{float:right;font-size:28px;font-weight:bold;cursor:pointer;color:#aaa}
 .close:hover{color:#fff}
 pre{white-space:pre-wrap;word-wrap:break-word}
+
+.mode-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-family:inherit;transition:all .2s}
+.mode-btn:hover{border-color:#6366f1;color:#e2e8f0}
+.mode-btn.active{background:#6366f122;border-color:#6366f1;color:#6366f1}
+.mode-btn:disabled{opacity:.4;cursor:not-allowed}
+
 </style>
 </head>
 <body>
@@ -114,6 +120,25 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 
 <!-- ЗАПРОС -->
 <div id="query-tab" class="tab-content active">
+  <!-- Режим ввода -->
+  <div id="mode-bar" style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;align-items:center">
+    <span style="font-size:.75rem;color:#64748b;margin-right:.25rem">Режим:</span>
+    <button class="mode-btn active" id="btn-manual" onclick="setMode('manual')">✏️ Ручной ввод</button>
+    <button class="mode-btn" id="btn-novel" onclick="setMode('novel')" title="Генерирует вопрос для нового инварианта">🎲 Новый вопрос</button>
+    <button class="mode-btn" id="btn-clarify" onclick="setMode('clarify')" title="Уточнить существующий артефакт">🔧 Уточнить артефакт</button>
+    <span id="mode-status" style="font-size:.72rem;color:#94a3b8;margin-left:.5rem"></span>
+  </div>
+
+  <!-- Панель выбора артефакта (только для режима clarify) -->
+  <div id="clarify-panel" style="display:none;background:rgba(251,191,36,.07);border:1px solid #fbbf2433;border-radius:10px;padding:.85rem;margin-bottom:.75rem">
+    <div style="font-size:.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem">🔧 Выберите артефакт для уточнения</div>
+    <select id="clarify-select" style="width:100%;background:#1e293b;color:#e2e8f0;border:1px solid #475569;padding:.5rem;border-radius:6px;font-size:.85rem;font-family:inherit">
+      <option value="">— Загрузка кандидатов...</option>
+    </select>
+    <div id="clarify-detail" style="margin-top:.6rem;font-size:.78rem;color:#94a3b8;display:none"></div>
+    <button onclick="generateClarification()" style="margin-top:.6rem;background:#fbbf2422;color:#fbbf24;border:1px solid #fbbf2444;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem">🔧 Сгенерировать уточняющий вопрос</button>
+  </div>
+
   <textarea id="queryText" placeholder="Введите запрос... Система покажет связанные инварианты из базы знаний."></textarea>
 
   <!-- RAG block -->
@@ -652,6 +677,97 @@ async function loadQuarantine() {
   } catch(err) {
     container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
   }
+}
+
+
+// ══════════════════════════════════════
+// QUESTION GENERATOR
+// ══════════════════════════════════════
+let currentMode = 'manual';
+let clarifyData = null;
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + mode).classList.add('active');
+  document.getElementById('clarify-panel').style.display = mode === 'clarify' ? 'block' : 'none';
+  const status = document.getElementById('mode-status');
+
+  if (mode === 'novel') {
+    status.textContent = '⏳ Генерация вопроса...';
+    document.getElementById('btn-novel').disabled = true;
+    fetch('/question/suggest')
+      .then(r => r.json())
+      .then(data => {
+        if (data.question) {
+          document.getElementById('queryText').value = data.question;
+          status.textContent = `✓ вопрос от ${data.model?.split('/').pop() || '?'} · отредактируй если нужно`;
+          fetchRag();
+        } else {
+          status.textContent = '❌ не удалось сгенерировать';
+        }
+      })
+      .catch(e => { status.textContent = '❌ ' + e.message; })
+      .finally(() => { document.getElementById('btn-novel').disabled = false; });
+  } else if (mode === 'clarify') {
+    status.textContent = '';
+    loadClarificationCandidates();
+  } else {
+    status.textContent = '';
+  }
+}
+
+async function loadClarificationCandidates() {
+  const sel = document.getElementById('clarify-select');
+  sel.innerHTML = '<option value="">— Загрузка...</option>';
+  try {
+    const res = await fetch('/question/candidates');
+    const data = await res.json();
+    const cands = data.candidates || [];
+    if (!cands.length) {
+      sel.innerHTML = '<option value="">— Нет артефактов для уточнения</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— Выберите артефакт...</option>' +
+      cands.map(c => {
+        const label = `[${c.domain}] ${c.verdict || '?'} conf=${c.confidence} · ${c.hypothesis_short.substring(0,50)}...`;
+        return `<option value="${c.id}" data-issues="${c.issues_count}" data-verdict="${c.verdict}">${label}</option>`;
+      }).join('');
+    sel.onchange = () => showClarifyDetail(cands, sel.value);
+  } catch(e) {
+    sel.innerHTML = '<option value="">— Ошибка загрузки</option>';
+  }
+}
+
+function showClarifyDetail(candidates, id) {
+  const detail = document.getElementById('clarify-detail');
+  if (!id) { detail.style.display = 'none'; return; }
+  const c = candidates.find(x => x.id === id);
+  if (!c) return;
+  detail.style.display = 'block';
+  detail.innerHTML = `
+    <div style="margin-bottom:.3rem"><span style="color:#fbbf24">${c.verdict}</span> conf=${c.confidence} · issues: ${c.issues_count} · spec=${c.specificity}</div>
+    <div style="color:#cbd5e1">${escHtml(c.hypothesis_short)}</div>
+  `;
+}
+
+async function generateClarification() {
+  const sel = document.getElementById('clarify-select');
+  const artifactId = sel.value;
+  if (!artifactId) return;
+  const status = document.getElementById('mode-status');
+  status.textContent = '⏳ Генерация уточняющего вопроса...';
+  try {
+    const res = await fetch(`/question/clarify/${artifactId}`);
+    const data = await res.json();
+    if (data.error) { status.textContent = '❌ ' + data.error; return; }
+    if (data.question) {
+      document.getElementById('queryText').value = data.question;
+      status.textContent = `✓ вопрос от ${data.model?.split('/').pop() || '?'} · отредактируй если нужно`;
+      clarifyData = { artifact_id: artifactId, summary: data.artifact_summary };
+      fetchRag();
+    }
+  } catch(e) { status.textContent = '❌ ' + e.message; }
 }
 
 window.onload = () => { loadHistory(); loadArtifacts(); };

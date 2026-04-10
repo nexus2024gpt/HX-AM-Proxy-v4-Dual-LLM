@@ -27,4 +27,10 @@ CONSTRAINTS:
 - domain must reflect the PRIMARY domain of the hypothesis, not the user's question topic
 - b_sync must reflect the actual cross-domain stability: 0.9+ only if the mechanism provably holds in 3+ unrelated domains
 
+DOMAIN DIVERSITY (critical):
+- If the RAG context shows 2+ entries from the same domain — assign a DIFFERENT domain to this hypothesis
+- Strongly prefer domains absent or underrepresented in the RAG context
+- mathematics is currently overrepresented — avoid assigning it unless the hypothesis is strictly and exclusively mathematical with no natural domain alternative
+- Preferred underrepresented domains: chemistry, psychology, linguistics, geology, astronomy, medicine, sociology, economics, ecology
+
 DO NOT ADD TEXT OUTSIDE JSON.

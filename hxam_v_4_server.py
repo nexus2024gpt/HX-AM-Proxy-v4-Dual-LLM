@@ -13,6 +13,7 @@ from llm_client_v_4 import LLMClient
 from archivist import Archivist
 from invariant_engine import SemanticSpace, InvariantGraph, PhaseDetector, process_with_invariants
 from pipeline_guard import PipelineGuard, RollbackManager, QuarantineLog
+from question_generator import QuestionGenerator
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,7 @@ archivist = Archivist(space=semantic_space, graph=invariant_graph)
 
 guard = PipelineGuard()
 quarantine = QuarantineLog()
+question_gen = QuestionGenerator(space=semantic_space, graph=invariant_graph)
 
 
 class QueryRequest(BaseModel):
@@ -406,6 +408,35 @@ def ui():
     if not html_path.exists():
         return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
+
+
+@app.get("/question/suggest")
+def suggest_question():
+    """Mode A — предложить новый вопрос для генератора инвариантов."""
+    try:
+        result = question_gen.suggest_novel()
+        return result
+    except Exception as e:
+        logger.error(f"QuestionGenerator Mode A error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/question/clarify/{artifact_id}")
+def clarify_artifact(artifact_id: str):
+    """Mode B — уточняющий вопрос для конкретного артефакта."""
+    try:
+        result = question_gen.suggest_clarification(artifact_id)
+        return result
+    except Exception as e:
+        logger.error(f"QuestionGenerator Mode B error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/question/candidates")
+def clarification_candidates():
+    """Список артефактов требующих уточнения (для выпадающего списка UI)."""
+    return {"candidates": question_gen.list_clarification_candidates()}
+
 
 
 if __name__ == "__main__":
