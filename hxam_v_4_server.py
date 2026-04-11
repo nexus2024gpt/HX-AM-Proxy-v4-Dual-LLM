@@ -71,44 +71,114 @@ GEN_PROMPT = load_prompt("generator_prompt.txt")
 VER_PROMPT = load_prompt("verifier_prompt.txt")
 
 
+def _close_brackets(s: str) -> str:
+    """Закрывает незакрытые { и [ в обрезанном JSON (не трогает строки)."""
+    depth_curly = 0
+    depth_square = 0
+    in_string = False
+    escape = False
+    for ch in s:
+        if escape:
+            escape = False
+            continue
+        if ch == '\\':
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if not in_string:
+            if ch == '{': depth_curly += 1
+            elif ch == '}': depth_curly = max(0, depth_curly - 1)
+            elif ch == '[': depth_square += 1
+            elif ch == ']': depth_square = max(0, depth_square - 1)
+    s = s.rstrip().rstrip(',')
+    s += ']' * depth_square
+    s += '}' * depth_curly
+    return s
+
+
 def extract_json(text: str) -> Dict[str, Any]:
     """
     Извлекает JSON из ответа LLM.
-    Устойчив к markdown-блокам, пояснительному тексту, множественным скобкам.
+
+    Четыре стратегии в порядке убывания надёжности:
+      1. Прямой парсинг полного JSON
+      2. Скользящее окно — обрезаем по последней , или : и закрываем скобки
+      3. Regex-извлечение критичных полей (verdict, confidence, survival, translation)
+      4. Пустой dict — пайплайн уйдёт в quarantine с кодом VER_EMPTY_JSON
+
+    Случай "обрезан до verdict" (maxOutputTokens слишком мал) → стратегия 3
+    возвращает частичный dict; validate_ver выдаст VER_NO_VERDICT.
+    Основной fix: maxOutputTokens=4096 для Gemini-верификатора (llm_client_v_4.py).
     """
     if not text:
         return {}
     text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"```\s*", "", text)
+
     start = text.find('{')
-    end = text.rfind('}')
-    if start == -1 or end == -1 or end <= start:
+    if start == -1:
         return {}
-    json_candidate = text[start:end+1]
-    try:
-        return json.loads(json_candidate)
-    except json.JSONDecodeError:
-        pass
-    # Попытка найти первый полный объект
-    try:
-        stack = []
-        for i, ch in enumerate(json_candidate):
-            if ch == '{':
-                stack.append(i)
-            elif ch == '}' and stack:
-                start_idx = stack.pop()
-                if not stack:
-                    try:
-                        return json.loads(json_candidate[start_idx:i+1])
-                    except Exception:
-                        continue
-    except Exception:
-        pass
-    try:
-        return json.loads(json_candidate.replace("'", '"'))
-    except Exception:
-        pass
-    logger.warning(f"extract_json: failed to parse from: {json_candidate[:200]}")
+    candidate = text[start:]
+
+    # 1. Прямой парсинг
+    end = candidate.rfind('}')
+    if end != -1:
+        try:
+            return json.loads(candidate[:end+1])
+        except Exception:
+            pass
+
+    # 2. Скользящее окно по разделителям
+    s = candidate.rstrip()
+    for trim_char in [',', ':']:
+        last = s.rfind(trim_char)
+        if last > 0:
+            try:
+                closed = _close_brackets(s[:last].rstrip())
+                result = json.loads(closed)
+                if isinstance(result, dict) and result:
+                    logger.info("extract_json: recovered via bracket-closing")
+                    return result
+            except Exception:
+                pass
+
+    # 3. Regex-извлечение критичных полей из обрезанного текста
+    partial: Dict[str, Any] = {}
+    for key in ("verdict", "confidence"):
+        m = re.search(rf'"{key}"\s*:\s*"([^"]+)"', candidate)
+        if m:
+            partial[key] = m.group(1)
+        else:
+            m = re.search(rf'"{key}"\s*:\s*([0-9.]+)', candidate)
+            if m:
+                try:
+                    partial[key] = float(m.group(1))
+                except Exception:
+                    pass
+
+    # Восстановить translation
+    trans_m = re.search(r'"translation"\s*:\s*(\{[^}]+\})', candidate, re.DOTALL)
+    if trans_m:
+        try:
+            partial["translation"] = json.loads(trans_m.group(1))
+        except Exception:
+            td = re.search(r'"target_domain"\s*:\s*"([^"]+)"', candidate)
+            sv = re.search(r'"survival"\s*:\s*"([^"]+)"', candidate)
+            if td or sv:
+                partial["translation"] = {}
+                if td: partial["translation"]["target_domain"] = td.group(1)
+                if sv: partial["translation"]["survival"] = sv.group(1)
+
+    if partial:
+        logger.warning(
+            f"extract_json: partial recovery — fields={list(partial.keys())} "
+            f"(response likely truncated by token limit)"
+        )
+        return partial
+
+    logger.warning(f"extract_json: failed to parse from: {candidate[:200]}")
     return {}
 
 
