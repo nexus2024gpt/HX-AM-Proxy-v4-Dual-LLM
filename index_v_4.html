@@ -34,7 +34,6 @@ textarea:focus{outline:none;border-color:#6366f1}
 .rag-domain{display:inline-block;background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .4rem;font-size:.7rem;margin-bottom:.25rem}
 .rag-sim{float:right;color:#64748b;font-size:.7rem}
 .rag-text{color:#cbd5e1;line-height:1.4}
-.rag-empty{color:#475569;font-size:.8rem;font-style:italic}
 
 .submit-btn{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);color:#fff;border:none;padding:.75rem 2rem;cursor:pointer;margin:.75rem 0;font-size:1rem;border-radius:8px;font-weight:600;transition:transform .2s}
 .submit-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(99,102,241,.4)}
@@ -61,13 +60,10 @@ textarea:focus{outline:none;border-color:#6366f1}
 .refresh-btn{background:#475569;color:#fff;border:none;padding:.5rem 1rem;border-radius:6px;cursor:pointer;margin-bottom:1rem}
 .refresh-btn:hover{background:#64748b}
 
-/* ═══ GRAPH TAB ═══ */
+/* GRAPH TAB */
 .graph-toolbar{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
 .graph-layout{display:grid;grid-template-columns:1fr 300px;gap:1rem;height:680px}
-
 #graph-container{background:#060d18;border:1px solid #1e3a5f;border-radius:12px;position:relative;overflow:hidden}
-
-/* Graph sidebar */
 .graph-sidebar{display:flex;flex-direction:column;gap:.75rem;overflow-y:auto}
 .graph-stats{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
 .graph-stats h4,.graph-legend h4,.node-detail h4{color:#6366f1;font-size:.8rem;margin-bottom:.75rem;letter-spacing:.06em;text-transform:uppercase}
@@ -75,23 +71,19 @@ textarea:focus{outline:none;border-color:#6366f1}
 .stat-row:last-child{border-bottom:none}
 .stat-label{color:#64748b;font-size:.78rem}
 .stat-value{color:#e2e8f0;font-weight:bold;font-size:.82rem}
-
 .graph-legend{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
 .legend-item{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.78rem;color:#94a3b8}
 .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-
 .node-detail{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155;flex:1;min-height:0;overflow-y:auto}
 .node-detail-empty{color:#475569;font-size:.8rem;font-style:italic}
 .detail-field{margin-bottom:.55rem}
 .detail-key{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem}
 .detail-val{font-size:.8rem;color:#e2e8f0;word-break:break-all}
 .detail-badge{display:inline-block;padding:.12rem .45rem;border-radius:20px;font-size:.68rem;font-weight:bold}
-
-/* Phase badge */
 #graph-phase-badge{font-size:.8rem;color:#64748b}
 #graph-phase-badge.sigma{color:#22d3ee;animation:pulse 2s infinite}
 
-/* Modal */
+/* Artifact Modal */
 .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8)}
 .modal-content{background:#1e293b;margin:5% auto;padding:20px;border:1px solid #6366f1;border-radius:12px;width:80%;max-width:900px;max-height:80%;overflow-y:auto}
 .close{float:right;font-size:28px;font-weight:bold;cursor:pointer;color:#aaa}
@@ -103,12 +95,134 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 .mode-btn.active{background:#6366f122;border-color:#6366f1;color:#6366f1}
 .mode-btn:disabled{opacity:.4;cursor:not-allowed}
 
+/* ══════════════════════════════════════
+   TRACKER BUTTON (fixed top-right)
+══════════════════════════════════════ */
+#trackerBtn{
+  position:fixed;top:1.25rem;right:1.5rem;z-index:500;
+  background:linear-gradient(135deg,#0f172a,#1e293b);
+  border:1px solid #334155;border-radius:10px;
+  color:#94a3b8;padding:.5rem .85rem;cursor:pointer;
+  font-size:.85rem;font-family:inherit;
+  transition:all .25s;display:flex;align-items:center;gap:.4rem
+}
+#trackerBtn:hover{border-color:#6366f1;color:#a5b4fc;background:#6366f111}
+#trackerBtn .tracker-dot{
+  width:7px;height:7px;border-radius:50%;background:#4ade80;
+  animation:pulse 2s infinite
+}
+#trackerBtn .tracker-dot.warn{background:#f59e0b}
+#trackerBtn .tracker-dot.error{background:#ef4444}
+
+/* ══════════════════════════════════════
+   TRACKER MODAL
+══════════════════════════════════════ */
+#trackerModal{
+  display:none;position:fixed;z-index:900;left:0;top:0;
+  width:100%;height:100%;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(4px)
+}
+.tracker-modal-content{
+  background:#0f172a;margin:2% auto;
+  border:1px solid #334155;border-radius:16px;
+  width:92%;max-width:1100px;max-height:92vh;
+  overflow:hidden;display:flex;flex-direction:column
+}
+.tracker-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1rem 1.5rem;border-bottom:1px solid #1e293b;flex-shrink:0
+}
+.tracker-header h2{color:#6366f1;font-size:1.2rem;margin:0}
+.tracker-tabs{display:flex;gap:.5rem}
+.tracker-tab{background:transparent;border:1px solid #334155;color:#64748b;
+  padding:.4rem 1rem;border-radius:6px;cursor:pointer;font-size:.82rem;font-family:inherit;transition:all .2s}
+.tracker-tab.active{background:#6366f122;border-color:#6366f1;color:#a5b4fc}
+.tracker-tab-content{display:none;padding:1.25rem 1.5rem;overflow-y:auto;flex:1}
+.tracker-tab-content.active{display:block}
+.tracker-close{background:none;border:none;color:#64748b;font-size:1.5rem;cursor:pointer;line-height:1}
+.tracker-close:hover{color:#e2e8f0}
+
+/* Summary cards */
+.summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
+.s-card{background:#1e293b;border-radius:10px;padding:.85rem 1rem;border:1px solid #334155;text-align:center}
+.s-card .s-val{font-size:1.5rem;font-weight:bold;color:#e2e8f0;line-height:1.2}
+.s-card .s-label{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:.25rem}
+.s-card.green .s-val{color:#4ade80}
+.s-card.yellow .s-val{color:#fbbf24}
+.s-card.red .s-val{color:#ef4444}
+.s-card.blue .s-val{color:#60a5fa}
+
+/* Stats tables */
+.t-section{margin-bottom:1.25rem}
+.t-section h4{color:#6366f1;font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+.t-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.t-table th{background:#1e293b;color:#64748b;padding:.45rem .6rem;text-align:left;font-weight:600;
+  border-bottom:1px solid #334155;white-space:nowrap}
+.t-table td{padding:.4rem .6rem;border-bottom:1px solid #1e293b;color:#cbd5e1;vertical-align:middle}
+.t-table tr:hover td{background:#1e293b88}
+.t-badge{display:inline-block;padding:.1rem .35rem;border-radius:4px;font-size:.65rem;font-weight:bold}
+.t-badge.groq{background:#4ade8022;color:#4ade80}
+.t-badge.gemini{background:#60a5fa22;color:#60a5fa}
+.t-badge.hf{background:#a78bfa22;color:#a78bfa}
+.t-badge.nexus{background:#fbbf2422;color:#fbbf24}
+.t-badge.roman{background:#fb923c22;color:#fb923c}
+.t-badge.gen{background:#6366f122;color:#818cf8}
+.t-badge.ver{background:#22d3ee22;color:#22d3ee}
+.enabled-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.3rem}
+
+/* Config tab */
+.cfg-toolbar{display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.cfg-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.4rem .85rem;
+  border-radius:6px;cursor:pointer;font-size:.8rem;font-family:inherit;transition:all .2s}
+.cfg-btn:hover{border-color:#6366f1;color:#e2e8f0}
+.cfg-btn.primary{background:#6366f122;border-color:#6366f1;color:#a5b4fc}
+.cfg-btn.danger{border-color:#ef4444;color:#ef4444}
+.cfg-btn.danger:hover{background:#ef444422}
+
+.provider-card{background:#1e293b;border:1px solid #334155;border-radius:10px;
+  margin-bottom:.75rem;overflow:hidden;transition:border-color .2s}
+.provider-card.disabled{opacity:.55}
+.provider-card-header{
+  display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;
+  cursor:pointer;user-select:none
+}
+.provider-card-header:hover{background:#ffffff08}
+.pc-label{flex:1;font-size:.88rem;font-weight:600;color:#e2e8f0}
+.pc-meta{font-size:.72rem;color:#64748b;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.provider-card-body{display:none;padding:.75rem 1rem 1rem;border-top:1px solid #334155}
+.provider-card-body.open{display:block}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem .85rem}
+.field-grid.full{grid-template-columns:1fr}
+.f-group{display:flex;flex-direction:column;gap:.2rem}
+.f-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.f-input{background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:.4rem .6rem;
+  border-radius:5px;font-size:.8rem;font-family:inherit;width:100%;transition:border-color .2s}
+.f-input:focus{outline:none;border-color:#6366f1}
+select.f-input option{background:#1e293b}
+.role-checks{display:flex;gap:.75rem;align-items:center;margin-top:.2rem}
+.role-checks label{font-size:.78rem;color:#94a3b8;display:flex;align-items:center;gap:.3rem;cursor:pointer}
+.card-actions{display:flex;gap:.5rem;margin-top:.85rem;justify-content:flex-end}
+.card-btn{background:transparent;border:1px solid #334155;color:#94a3b8;
+  padding:.3rem .7rem;border-radius:5px;cursor:pointer;font-size:.75rem;font-family:inherit;transition:all .2s}
+.card-btn:hover{border-color:#6366f1;color:#a5b4fc}
+.card-btn.danger{border-color:#ef4444;color:#ef4444}
+.card-btn.danger:hover{background:#ef444422}
+
+/* Add provider form */
+#addProviderForm{background:#1e293b;border:1px dashed #334155;border-radius:10px;padding:1rem;margin-bottom:1rem;display:none}
+#addProviderForm.open{display:block}
 </style>
 </head>
 <body>
 <div class="container">
 <h1>🔮 HX-AM Proxy v4</h1>
-<p class="subtitle">Dual‑LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | 3D Graph | RAG</p>
+<p class="subtitle">Dual-LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | 3D Graph | RAG</p>
+
+<!-- TRACKER BUTTON -->
+<button id="trackerBtn" onclick="openTracker()">
+  <span class="tracker-dot" id="trackerStatusDot"></span>
+  📊 API Tracker
+</button>
 
 <div class="tabs">
   <button class="tab-button active" onclick="switchTab('query',this)">💬 Запрос</button>
@@ -120,16 +234,14 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 
 <!-- ЗАПРОС -->
 <div id="query-tab" class="tab-content active">
-  <!-- Режим ввода -->
   <div id="mode-bar" style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;align-items:center">
     <span style="font-size:.75rem;color:#64748b;margin-right:.25rem">Режим:</span>
     <button class="mode-btn active" id="btn-manual" onclick="setMode('manual')">✏️ Ручной ввод</button>
-    <button class="mode-btn" id="btn-novel" onclick="setMode('novel')" title="Генерирует вопрос для нового инварианта">🎲 Новый вопрос</button>
-    <button class="mode-btn" id="btn-clarify" onclick="setMode('clarify')" title="Уточнить существующий артефакт">🔧 Уточнить артефакт</button>
+    <button class="mode-btn" id="btn-novel" onclick="setMode('novel')">🎲 Новый вопрос</button>
+    <button class="mode-btn" id="btn-clarify" onclick="setMode('clarify')">🔧 Уточнить артефакт</button>
     <span id="mode-status" style="font-size:.72rem;color:#94a3b8;margin-left:.5rem"></span>
   </div>
 
-  <!-- Панель выбора артефакта (только для режима clarify) -->
   <div id="clarify-panel" style="display:none;background:rgba(251,191,36,.07);border:1px solid #fbbf2433;border-radius:10px;padding:.85rem;margin-bottom:.75rem">
     <div style="font-size:.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem">🔧 Выберите артефакт для уточнения</div>
     <select id="clarify-select" style="width:100%;background:#1e293b;color:#e2e8f0;border:1px solid #475569;padding:.5rem;border-radius:6px;font-size:.85rem;font-family:inherit">
@@ -141,7 +253,6 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 
   <textarea id="queryText" placeholder="Введите запрос... Система покажет связанные инварианты из базы знаний."></textarea>
 
-  <!-- RAG block -->
   <div id="rag-block">
     <div class="rag-title">🧠 Система помнит — релевантные инварианты из базы знаний</div>
     <div id="rag-items"></div>
@@ -196,15 +307,15 @@ pre{white-space:pre-wrap;word-wrap:break-word}
   <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
   <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
 </div>
-</div>
 
 <!-- КАРАНТИН -->
 <div id="quarantine-tab" class="tab-content">
   <button class="refresh-btn" onclick="loadQuarantine()">🔄 Обновить</button>
   <div id="quarantine-list" class="history-list">Загрузка...</div>
 </div>
+</div>
 
-<!-- Modal -->
+<!-- ARTIFACT MODAL -->
 <div id="artifactModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeModal()">&times;</span>
@@ -213,10 +324,131 @@ pre{white-space:pre-wrap;word-wrap:break-word}
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════
+     TRACKER MODAL
+════════════════════════════════════════════════════════ -->
+<div id="trackerModal">
+  <div class="tracker-modal-content">
+    <div class="tracker-header">
+      <h2>📊 API Usage Tracker</h2>
+      <div style="display:flex;align-items:center;gap:1rem">
+        <div class="tracker-tabs">
+          <button class="tracker-tab active" onclick="switchTrackerTab('dashboard',this)">📈 Дашборд</button>
+          <button class="tracker-tab" onclick="switchTrackerTab('settings',this)">⚙️ Провайдеры</button>
+        </div>
+        <button class="tracker-close" onclick="closeTracker()">✕</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD TAB -->
+    <div id="tracker-dashboard" class="tracker-tab-content active">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
+        <span style="font-size:.72rem;color:#64748b" id="tracker-date">—</span>
+        <div style="display:flex;gap:.5rem">
+          <button class="cfg-btn" onclick="loadTrackerStats()">🔄 Обновить</button>
+          <button class="cfg-btn" onclick="resetStats('today')">↺ Сброс сегодня</button>
+          <button class="cfg-btn danger" onclick="resetStats('all')">🗑 Сбросить всё</button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-cards">
+        <div class="s-card green">
+          <div class="s-val" id="sc-req-today">—</div>
+          <div class="s-label">Запросов сегодня</div>
+        </div>
+        <div class="s-card blue">
+          <div class="s-val" id="sc-tokens-today">—</div>
+          <div class="s-label">Токенов сегодня</div>
+        </div>
+        <div class="s-card red">
+          <div class="s-val" id="sc-errors-today">—</div>
+          <div class="s-label">Ошибок сегодня</div>
+        </div>
+        <div class="s-card yellow">
+          <div class="s-val" id="sc-active">—</div>
+          <div class="s-label">Активных провайдеров</div>
+        </div>
+      </div>
+
+      <!-- Account aggregates -->
+      <div class="t-section">
+        <h4>🏦 По аккаунтам (лимиты расходуются на аккаунт, не на ключ)</h4>
+        <table class="t-table">
+          <thead><tr>
+            <th>Провайдер</th><th>Аккаунт</th><th>Ключей</th>
+            <th>Запросов (день)</th><th>Токенов (день)</th>
+            <th>Ошибок (день)</th><th>Всего</th>
+          </tr></thead>
+          <tbody id="acc-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Provider detail -->
+      <div class="t-section">
+        <h4>🔑 По провайдерам (детально)</h4>
+        <table class="t-table">
+          <thead><tr>
+            <th>Провайдер</th><th>Роль</th><th>Модель</th>
+            <th>Req (день)</th><th>Вх. токены</th><th>Исх. токены</th>
+            <th>Ошибки</th><th>Последний вызов</th><th>Статус</th>
+          </tr></thead>
+          <tbody id="prov-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="tracker-settings" class="tracker-tab-content">
+      <div class="cfg-toolbar">
+        <button class="cfg-btn primary" onclick="saveAllProviders()">💾 Сохранить всё</button>
+        <button class="cfg-btn" onclick="toggleAddForm()">➕ Добавить провайдера</button>
+        <span style="font-size:.72rem;color:#64748b;margin-left:.5rem">Порядок = приоритет. Провайдеры с меньшей нагрузкой аккаунта идут первыми автоматически.</span>
+      </div>
+
+      <!-- Add provider form -->
+      <div id="addProviderForm">
+        <div style="font-size:.75rem;color:#6366f1;margin-bottom:.75rem;font-weight:600">➕ Новый провайдер</div>
+        <div class="field-grid">
+          <div class="f-group"><div class="f-label">ID (уникальный)</div><input class="f-input" id="np-id" placeholder="groq_third_account"></div>
+          <div class="f-group"><div class="f-label">Провайдер</div>
+            <select class="f-input" id="np-provider" onchange="onNewProviderChange()">
+              <option value="groq">Groq</option>
+              <option value="gemini">Gemini</option>
+              <option value="huggingface">HuggingFace</option>
+            </select>
+          </div>
+          <div class="f-group"><div class="f-label">Аккаунт</div><input class="f-input" id="np-account" placeholder="Nexus / Roman"></div>
+          <div class="f-group"><div class="f-label">Название</div><input class="f-input" id="np-label" placeholder="Groq · Third Account"></div>
+          <div class="f-group full"><div class="f-label">API Ключ</div><input class="f-input" id="np-key" type="password" placeholder="gsk_... / AIzaSy... / hf_..."></div>
+          <div class="f-group"><div class="f-label">API Base URL</div><input class="f-input" id="np-base" placeholder="https://api.groq.com/openai/v1"></div>
+          <div class="f-group"><div class="f-label">Модель</div>
+            <select class="f-input" id="np-model"></select>
+          </div>
+        </div>
+        <div style="margin-top:.6rem">
+          <div class="f-label" style="margin-bottom:.4rem">Роли</div>
+          <div class="role-checks">
+            <label><input type="checkbox" id="np-role-gen"> generator</label>
+            <label><input type="checkbox" id="np-role-ver"> verifier</label>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.85rem">
+          <button class="cfg-btn primary" onclick="addProvider()">Добавить</button>
+          <button class="cfg-btn" onclick="toggleAddForm()">Отмена</button>
+        </div>
+      </div>
+
+      <!-- Provider cards -->
+      <div id="provider-cards"></div>
+    </div>
+  </div>
+</div>
+
 <script>
-// ══════════════════════
-// TABS
-// ══════════════════════
+// ══════════════════════════════════════════════════════
+// TABS (main)
+// ══════════════════════════════════════════════════════
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -228,11 +460,10 @@ function switchTab(name, btn) {
   if (name === 'graph') loadGraph();
 }
 
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 // RAG CONTEXT
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 let ragTimer = null;
-
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('queryText').addEventListener('input', () => {
     clearTimeout(ragTimer);
@@ -248,57 +479,43 @@ async function fetchRag() {
   try {
     const res = await fetch('/rag/context?text=' + encodeURIComponent(text) + '&top_k=3');
     const data = await res.json();
-    if (!data.similar || data.similar.length === 0) {
-      block.classList.remove('visible');
-      return;
-    }
+    if (!data.similar || data.similar.length === 0) { block.classList.remove('visible'); return; }
+    const dropped = data.dropped || 0;
     items.innerHTML = data.similar.map(s => `
       <div class="rag-item">
         <span class="rag-domain">${s.domain}</span>
         <span class="rag-sim">sim: ${s.similarity}</span>
         <div class="rag-text">${escHtml(s.invariant)}</div>
       </div>
-    `).join('');
+    `).join('') + (dropped > 0 ? `<div style="font-size:.68rem;color:#475569;margin-top:.3rem">⚠️ ${dropped} инвариант(а) отфильтровано (высокое сходство или домен уже представлен)</div>` : '');
     block.classList.add('visible');
-  } catch(e) {
-    block.classList.remove('visible');
-  }
+  } catch(e) { block.classList.remove('visible'); }
 }
 
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 // MODEL BADGE
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 function modelBadge(model) {
   if (!model || model === 'none') return '';
-  const isGroq       = model.startsWith('groq/');
-  const isGemini     = model.startsWith('gemini/');
-  const isOpenRouter = model.startsWith('openrouter/');
-  const colors = { groq:'#4ade80', gemini:'#60a5fa', openrouter:'#fb923c' };
-  const key = isGroq ? 'groq' : isGemini ? 'gemini' : 'openrouter';
-  const c = colors[key];
+  const isGroq = model.startsWith('groq/');
+  const isGemini = model.startsWith('gemini/');
+  const isHF = model.startsWith('huggingface/');
+  const colors = { groq:'#4ade80', gemini:'#60a5fa', huggingface:'#a78bfa' };
+  const key = isGroq ? 'groq' : isGemini ? 'gemini' : 'huggingface';
+  const c = colors[key] || '#94a3b8';
   const label = model.split('/').pop().substring(0, 24);
-  const tag = isOpenRouter ? '⚠️ fallback · ' : '';
+  const tag = isHF ? '⚠️ fallback · ' : '';
   return `<span style="font-size:.68rem;font-weight:normal;background:${c}22;color:${c};border:1px solid ${c}55;border-radius:4px;padding:.1rem .4rem;margin-left:.4rem">${tag}${label}</span>`;
 }
 
-// ══════════════════════
-// ARCHIVIST PANEL
-// ══════════════════════
 function archivistPanel(a) {
-  const noveltyColor = {
-    'PHENOMENAL': '#22d3ee',
-    'NOVEL':      '#4ade80',
-    'KNOWN':      '#94a3b8',
-  };
+  const noveltyColor = { 'PHENOMENAL':'#22d3ee','NOVEL':'#4ade80','KNOWN':'#94a3b8' };
   const novelty = a.novelty || '—';
   const isRephrasing = novelty.startsWith('REPHRASING_OF');
   const nc = isRephrasing ? '#f59e0b' : (noveltyColor[novelty] || '#94a3b8');
-  const mathColor = a.mathematical_verification === 'STRUCTURAL' ? '#4ade80'
-                  : a.mathematical_verification === 'CONTRADICTION' ? '#ef4444' : '#f59e0b';
+  const mathColor = a.mathematical_verification === 'STRUCTURAL' ? '#4ade80' : a.mathematical_verification === 'CONTRADICTION' ? '#ef4444' : '#f59e0b';
   const links = (a.cross_domain_links || []).join(', ') || '—';
-  const tags = (a.suggested_tags || []).map(t =>
-    `<span style="background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .3rem;font-size:.7rem;margin-right:.2rem">${t}</span>`
-  ).join('');
+  const tags = (a.suggested_tags || []).map(t => `<span style="background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .3rem;font-size:.7rem;margin-right:.2rem">${t}</span>`).join('');
   const score = typeof a.novelty_score === 'number' ? (a.novelty_score * 100).toFixed(0) + '%' : '—';
   const conf = typeof a.confidence === 'number' ? (a.confidence * 100).toFixed(0) + '%' : '—';
   return `<div class="panel" style="border-left-color:#22d3ee;min-width:280px;flex:1">
@@ -312,9 +529,9 @@ Reasoning: ${escHtml(a.reasoning_summary || '—')}</pre>
   </div>`;
 }
 
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 // QUERY
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 async function sendQuery() {
   const text = document.getElementById('queryText').value.trim();
   if (!text) return;
@@ -331,7 +548,6 @@ async function sendQuery() {
       body: JSON.stringify({text, domain: 'general', x_coordinate: 500})
     });
     const data = await res.json();
-    // Отклонённый запрос
     if (data.rejected) {
       pipeline.innerHTML = `<div style="background:#1e293b;border-left:4px solid #ef4444;border-radius:12px;padding:1.25rem 1.5rem;color:#ef4444">
         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:.5rem">🚫 Запрос отклонён</div>
@@ -344,10 +560,10 @@ async function sendQuery() {
     const s = data.structural || {};
     const tc = typeColor(s.artifact_type);
     const ragCtx = (data.rag_context || []);
-
+    const ragDropped = data.rag_dropped || 0;
     pipeline.innerHTML = `
       <div class="panel">
-        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''} ${modelBadge(data.gen_model)}</h3>
+        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''}${ragDropped ? ' · ✂️ фильтр:' + ragDropped : ''} ${modelBadge(data.gen_model)}</h3>
         <pre>${JSON.stringify(data.generation, null, 2)}</pre>
       </div>
       <div class="panel">
@@ -363,9 +579,12 @@ Centrality: ${s.centrality ?? '—'}
 Bridge: ${s.is_bridge ? '✅ ДА' : 'нет'}
 Similar: ${(s.similar_invariants || []).length}
 Phase: ${s.phase_signal?.signal || '—'}
+Domains(window): ${s.phase_signal?.unique_domains ?? '—'}
 Сохранён: ${data.saved ? '✅ ДА' : 'нет'}</pre>
       </div>
       ${data.archivist ? archivistPanel(data.archivist) : ''}`;
+    // Обновляем dot трекера
+    refreshTrackerDot();
   } catch(err) {
     pipeline.innerHTML = `<div style="color:#ef4444;padding:1rem">❌ ${err.message}</div>`;
   } finally {
@@ -374,11 +593,10 @@ Phase: ${s.phase_signal?.signal || '—'}
   }
 }
 
-// ══════════════════════
-// HISTORY — fixed: store entries in array, reference by index
-// ══════════════════════
+// ══════════════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════════════
 let historyEntries = [];
-
 async function loadHistory() {
   const container = document.getElementById('history-list');
   container.innerHTML = 'Загрузка...';
@@ -386,10 +604,7 @@ async function loadHistory() {
     const res = await fetch('/history');
     const data = await res.json();
     historyEntries = data.history || [];
-    if (!historyEntries.length) {
-      container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>';
-      return;
-    }
+    if (!historyEntries.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>'; return; }
     container.innerHTML = historyEntries.map((e, i) => {
       const t = new Date(e.time * 1000).toLocaleString('ru-RU');
       const q = (e.query || '').substring(0, 120);
@@ -398,46 +613,30 @@ async function loadHistory() {
       return `<div class="history-item" onclick="showHistoryDetail(${i})">
         <div class="history-timestamp">🕐 ${t} · <b style="color:#94a3b8">${e.domain || 'general'}</b></div>
         <div class="history-query">${escHtml(q)}</div>
-        <div class="history-meta">
-          ${e.saved ? '✅ сохранён' : '❌ не сохранён'}
-          · <span style="color:${tc}">${at}</span>
-          ${(e.rag_context || []).length ? '· 🧠 RAG:' + e.rag_context.length : ''}
-        </div>
+        <div class="history-meta">${e.saved ? '✅ сохранён' : '❌ не сохранён'} · <span style="color:${tc}">${at}</span>${(e.rag_context||[]).length ? ' · 🧠 RAG:' + e.rag_context.length : ''}</div>
       </div>`;
     }).join('');
-  } catch(err) {
-    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
-  }
+  } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
 }
+function showHistoryDetail(i) { const e = historyEntries[i]; if (e) showModal(JSON.stringify(e, null, 2)); }
 
-function showHistoryDetail(i) {
-  const e = historyEntries[i];
-  if (!e) return;
-  showModal(JSON.stringify(e, null, 2));
-}
-
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 // ARTIFACTS
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 async function loadArtifacts() {
   const container = document.getElementById('artifacts-list');
   container.innerHTML = 'Загрузка...';
   try {
     const res = await fetch('/artifacts');
     const data = await res.json();
-    if (!data.artifacts?.length) {
-      container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>';
-      return;
-    }
+    if (!data.artifacts?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>'; return; }
     container.innerHTML = data.artifacts.map(item => {
       const isPortal = item.file.includes('.hyx-portal');
       return `<div class="artifact-item" onclick="viewArtifact('${item.file}')">
         <div class="artifact-filename">${isPortal ? '🌀' : '📄'} ${item.file}</div>
       </div>`;
     }).join('');
-  } catch(err) {
-    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
-  }
+  } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
 }
 
 async function viewArtifact(filename) {
@@ -447,198 +646,103 @@ async function viewArtifact(filename) {
     if (!res.ok) throw new Error('Не найден');
     const data = await res.json();
     document.getElementById('artifactContent').textContent = JSON.stringify(data, null, 2);
-  } catch(err) {
-    document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`;
-  }
+  } catch(err) { document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`; }
 }
 
 function showModal(text) {
   document.getElementById('artifactContent').textContent = text;
   document.getElementById('artifactModal').style.display = 'block';
 }
-function closeModal() {
-  document.getElementById('artifactModal').style.display = 'none';
-}
-window.onclick = e => {
-  if (e.target === document.getElementById('artifactModal')) closeModal();
-};
+function closeModal() { document.getElementById('artifactModal').style.display = 'none'; }
+window.onclick = e => { if (e.target === document.getElementById('artifactModal')) closeModal(); };
 
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 // 3D GRAPH
-// ══════════════════════
+// ══════════════════════════════════════════════════════
 let graph3d = null;
-
 const NODE_COLORS = {
-  stable_cluster: '#4ade80',
-  'hyx-portal':   '#6366f1',
-  weak_pattern:   '#f59e0b',
-  mixed_patterns: '#f59e0b',
-  noise:          '#ef4444',
-  isolated:       '#ef4444',
-  sigma_primitive_candidate: '#22d3ee',
-  unknown:        '#94a3b8',
+  stable_cluster:'#4ade80','hyx-portal':'#6366f1',weak_pattern:'#f59e0b',
+  mixed_patterns:'#f59e0b',noise:'#ef4444',isolated:'#ef4444',
+  sigma_primitive_candidate:'#22d3ee',terminological:'#f97316',unknown:'#94a3b8'
 };
-
-function typeColor(t) {
-  return NODE_COLORS[t] || '#94a3b8';
-}
-
-function getNodeColor(node) {
-  if (node.is_bridge) return NODE_COLORS['hyx-portal'];
-  return NODE_COLORS[node.stability] || NODE_COLORS.unknown;
-}
-
-function getNodeSize(node) {
-  return 4 + (node.b_sync || 0) * 6;
-}
+function typeColor(t) { return NODE_COLORS[t] || '#94a3b8'; }
+function getNodeColor(node) { return node.is_bridge ? NODE_COLORS['hyx-portal'] : (NODE_COLORS[node.stability] || NODE_COLORS.unknown); }
+function getNodeSize(node) { return 4 + (node.b_sync || 0) * 6; }
 
 async function loadGraph() {
   try {
-    const [phaseRes, dataRes] = await Promise.all([
-      fetch('/phase'),
-      fetch('/graph/data')
-    ]);
+    const [phaseRes, dataRes] = await Promise.all([fetch('/phase'), fetch('/graph/data')]);
     const phase = await phaseRes.json();
     const data = await dataRes.json();
-
-    // Phase badge
     const badge = document.getElementById('graph-phase-badge');
     if (phase.signal === 'sigma_primitive_candidate') {
-      badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density}`;
+      badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density} · domains=${phase.unique_domains}`;
       badge.className = 'sigma';
+    } else if (phase.signal === 'template_loop') {
+      badge.textContent = `⚠️ TEMPLATE LOOP · density=${phase.density} · domains=${phase.unique_domains}`;
+      badge.style.color = '#f59e0b';
+      badge.className = '';
     } else {
       badge.textContent = `Phase: ${phase.signal} · density=${phase.density}`;
       badge.className = '';
     }
-
-    // Stats
     document.getElementById('stat-nodes').textContent = data.meta.total_nodes;
     document.getElementById('stat-edges').textContent = data.meta.total_edges;
     document.getElementById('stat-clusters').textContent = data.meta.cluster_count;
     document.getElementById('stat-bridges').textContent = data.meta.bridge_count;
-
     if (!data.nodes.length) return;
-
     renderGraph3D(data);
-  } catch(err) {
-    console.error('Graph load error:', err);
-  }
+  } catch(err) { console.error('Graph load error:', err); }
 }
 
 function renderGraph3D(data) {
   const container = document.getElementById('graph-container');
   container.innerHTML = '';
-
-  // Normalize link weights for color
   const maxWeight = Math.max(...data.links.map(l => l.weight), 0.001);
-
-  // Build node map for labels
-  const nodeMap = {};
-  data.nodes.forEach(n => nodeMap[n.id] = n);
-
-  // Format for 3d-force-graph
   const graphData = {
-    nodes: data.nodes.map(n => ({
-      ...n,
-      name: n.id.substring(0, 8),
-      color: getNodeColor(n),
-      val: getNodeSize(n),
-    })),
-    links: data.links.map(l => ({
-      ...l,
-      color: lerpColor('#1e3a5f', '#6366f1', l.weight / maxWeight),
-    }))
+    nodes: data.nodes.map(n => ({...n, name: n.id.substring(0,8), color: getNodeColor(n), val: getNodeSize(n)})),
+    links: data.links.map(l => ({...l, color: lerpColor('#1e3a5f','#6366f1', l.weight/maxWeight)}))
   };
-
-  graph3d = ForceGraph3D({ controlType: 'orbit' })(container)
-    .width(container.clientWidth)
-    .height(container.clientHeight)
+  graph3d = ForceGraph3D({controlType:'orbit'})(container)
+    .width(container.clientWidth).height(container.clientHeight)
     .backgroundColor('#060d18')
-    .nodeLabel(n => `
-      <div style="background:rgba(15,23,42,.95);border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;font-family:monospace;font-size:.75rem;max-width:260px">
-        <div style="color:#fbbf24;font-weight:bold;margin-bottom:.3rem">${n.id}</div>
-        <div style="color:#94a3b8">domain: <span style="color:#e2e8f0">${n.domain}</span></div>
-        <div style="color:#94a3b8">b_sync: <span style="color:#e2e8f0">${n.b_sync}</span></div>
-        <div style="color:#94a3b8">stability: <span style="color:${getNodeColor(n)}">${n.stability}</span></div>
-        <div style="color:#94a3b8">bridge: <span style="color:#e2e8f0">${n.is_bridge ? '✅' : '—'}</span></div>
-      </div>
-    `)
-    .nodeColor(n => n.color)
-    .nodeVal(n => n.val)
-    .nodeOpacity(0.9)
-    .linkColor(l => l.color)
-    .linkWidth(l => 0.5 + (l.weight / maxWeight) * 2.5)
-    .linkOpacity(0.6)
+    .nodeLabel(n => `<div style="background:rgba(15,23,42,.95);border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;font-family:monospace;font-size:.75rem;max-width:260px">
+      <div style="color:#fbbf24;font-weight:bold;margin-bottom:.3rem">${n.id}</div>
+      <div style="color:#94a3b8">domain: <span style="color:#e2e8f0">${n.domain}</span></div>
+      <div style="color:#94a3b8">b_sync: <span style="color:#e2e8f0">${n.b_sync}</span></div>
+      <div style="color:#94a3b8">stability: <span style="color:${getNodeColor(n)}">${n.stability}</span></div>
+      <div style="color:#94a3b8">bridge: <span style="color:#e2e8f0">${n.is_bridge ? '✅' : '—'}</span></div>
+    </div>`)
+    .nodeColor(n => n.color).nodeVal(n => n.val).nodeOpacity(0.9)
+    .linkColor(l => l.color).linkWidth(l => 0.5 + (l.weight/maxWeight)*2.5).linkOpacity(0.6)
     .linkLabel(l => `weight: ${l.weight.toFixed(3)} · sim: ${l.similarity.toFixed(3)}`)
-    .graphData(graphData)
-    .onNodeClick(node => showNodeDetail(node));
+    .graphData(graphData).onNodeClick(node => showNodeDetail(node));
 }
 
 function showNodeDetail(d) {
   const panel = document.getElementById('node-detail');
   const tc = getNodeColor(d);
-  panel.innerHTML = `
-    <h4>🔍 Узел</h4>
-    <div class="detail-field">
-      <div class="detail-key">ID</div>
-      <div class="detail-val" style="color:#fbbf24">${d.id}</div>
-    </div>
-    <div class="detail-field">
-      <div class="detail-key">Domain</div>
-      <div class="detail-val">${d.domain}</div>
-    </div>
-    <div class="detail-field">
-      <div class="detail-key">B_sync</div>
-      <div class="detail-val">${d.b_sync}</div>
-    </div>
-    <div class="detail-field">
-      <div class="detail-key">Stability</div>
-      <div class="detail-val">
-        <span class="detail-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}66">${d.stability}</span>
-      </div>
-    </div>
-    <div class="detail-field">
-      <div class="detail-key">Cluster</div>
-      <div class="detail-val">${d.cluster >= 0 ? '#' + d.cluster : 'изолирован'}</div>
-    </div>
-    <div class="detail-field">
-      <div class="detail-key">Bridge</div>
-      <div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div>
-    </div>
+  panel.innerHTML = `<h4>🔍 Узел</h4>
+    <div class="detail-field"><div class="detail-key">ID</div><div class="detail-val" style="color:#fbbf24">${d.id}</div></div>
+    <div class="detail-field"><div class="detail-key">Domain</div><div class="detail-val">${d.domain}</div></div>
+    <div class="detail-field"><div class="detail-key">B_sync</div><div class="detail-val">${d.b_sync}</div></div>
+    <div class="detail-field"><div class="detail-key">Stability</div><div class="detail-val">
+      <span class="detail-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}66">${d.stability}</span>
+    </div></div>
+    <div class="detail-field"><div class="detail-key">Cluster</div><div class="detail-val">${d.cluster >= 0 ? '#'+d.cluster : 'изолирован'}</div></div>
+    <div class="detail-field"><div class="detail-key">Bridge</div><div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div></div>
     <div style="margin-top:.75rem">
-      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem"
-        onclick="viewArtifact('${d.id}.json')">📄 Открыть артефакт</button>
-    </div>
-  `;
+      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem" onclick="viewArtifact('${d.id}.json')">📄 Открыть артефакт</button>
+    </div>`;
 }
 
-// Resize 3D graph on window resize
 window.addEventListener('resize', () => {
-  if (graph3d) {
-    const c = document.getElementById('graph-container');
-    graph3d.width(c.clientWidth).height(c.clientHeight);
-  }
+  if (graph3d) { const c = document.getElementById('graph-container'); graph3d.width(c.clientWidth).height(c.clientHeight); }
 });
 
-// ══════════════════════
-// UTILS
-// ══════════════════════
-function lerpColor(a, b, t) {
-  const ah = parseInt(a.replace('#',''), 16);
-  const bh = parseInt(b.replace('#',''), 16);
-  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
-  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
-  const rr = Math.round(ar + (br - ar) * t);
-  const rg = Math.round(ag + (bg - ag) * t);
-  const rb = Math.round(ab + (bb - ab) * t);
-  return `#${((1<<24)+(rr<<16)+(rg<<8)+rb).toString(16).slice(1)}`;
-}
-
-function escHtml(str) {
-  return String(str).replace(/[&<>"']/g, m =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
+// ══════════════════════════════════════════════════════
+// QUARANTINE
+// ══════════════════════════════════════════════════════
 async function loadQuarantine() {
   const container = document.getElementById('quarantine-list');
   container.innerHTML = 'Загрузка...';
@@ -646,131 +750,385 @@ async function loadQuarantine() {
     const res = await fetch('/quarantine?limit=30');
     const data = await res.json();
     const items = data.quarantine || [];
-    if (!items.length) {
-      container.innerHTML = '<p style="color:#4ade80;text-align:center;padding:2rem">✅ Карантин пуст — все запросы прошли валидацию</p>';
-      return;
-    }
-    const codeColor = {
-      'GEN_ALL_PROVIDERS_FAILED': '#ef4444',
-      'VER_ALL_PROVIDERS_FAILED': '#ef4444',
-      'GEN_EMPTY_JSON': '#f87171',
-      'VER_EMPTY_JSON': '#f87171',
-      'GEN_NO_HYPOTHESIS': '#fbbf24',
-      'GEN_INVALID_B_SYNC': '#fbbf24',
-      'VER_NO_VERDICT': '#fbbf24',
-      'PIPELINE_EXCEPTION': '#a78bfa',
-    };
+    if (!items.length) { container.innerHTML = '<p style="color:#4ade80;text-align:center;padding:2rem">✅ Карантин пуст</p>'; return; }
+    const codeColor = {'GEN_ALL_PROVIDERS_FAILED':'#ef4444','VER_ALL_PROVIDERS_FAILED':'#ef4444','GEN_EMPTY_JSON':'#f87171','VER_EMPTY_JSON':'#f87171','GEN_NO_HYPOTHESIS':'#fbbf24','GEN_INVALID_B_SYNC':'#fbbf24','VER_NO_VERDICT':'#fbbf24','PIPELINE_EXCEPTION':'#a78bfa'};
     container.innerHTML = items.slice().reverse().map(e => {
-      const t = new Date(e.time * 1000).toLocaleString('ru-RU');
+      const t = new Date(e.time*1000).toLocaleString('ru-RU');
       const cc = codeColor[e.failure_code] || '#94a3b8';
-      const rb = (e.rollback_actions || []).join(', ') || '—';
+      const rb = (e.rollback_actions||[]).join(', ')||'—';
       return `<div class="history-item" style="border-left-color:#ef4444">
         <div class="history-timestamp">🕐 ${t} · stage: <b style="color:#fbbf24">${e.stage}</b></div>
         <div style="font-size:.85rem;color:#e2e8f0;margin:.3rem 0">${escHtml((e.query||'').substring(0,100))}</div>
-        <div style="font-size:.75rem">
-          <span style="background:${cc}22;color:${cc};border-radius:4px;padding:.1rem .4rem">${e.failure_code}</span>
-        </div>
+        <div style="font-size:.75rem"><span style="background:${cc}22;color:${cc};border-radius:4px;padding:.1rem .4rem">${e.failure_code}</span></div>
         <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem">${escHtml(e.reason||'')}</div>
-        ${rb !== '—' ? '<div style="font-size:.7rem;color:#475569;margin-top:.25rem">Rollback: ' + escHtml(rb) + '</div>' : ''}
+        ${rb!=='—'?'<div style="font-size:.7rem;color:#475569;margin-top:.25rem">Rollback: '+escHtml(rb)+'</div>':''}
       </div>`;
     }).join('');
-  } catch(err) {
-    container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`;
-  }
+  } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
 }
 
-
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // QUESTION GENERATOR
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 let currentMode = 'manual';
-let clarifyData = null;
-
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-' + mode).classList.add('active');
-  document.getElementById('clarify-panel').style.display = mode === 'clarify' ? 'block' : 'none';
+  document.getElementById('btn-'+mode).classList.add('active');
+  document.getElementById('clarify-panel').style.display = mode==='clarify'?'block':'none';
   const status = document.getElementById('mode-status');
-
-  if (mode === 'novel') {
-    status.textContent = '⏳ Генерация вопроса...';
-    document.getElementById('btn-novel').disabled = true;
-    fetch('/question/suggest')
-      .then(r => r.json())
-      .then(data => {
-        if (data.question) {
-          document.getElementById('queryText').value = data.question;
-          status.textContent = `✓ вопрос от ${data.model?.split('/').pop() || '?'} · отредактируй если нужно`;
-          fetchRag();
-        } else {
-          status.textContent = '❌ не удалось сгенерировать';
-        }
-      })
-      .catch(e => { status.textContent = '❌ ' + e.message; })
-      .finally(() => { document.getElementById('btn-novel').disabled = false; });
-  } else if (mode === 'clarify') {
-    status.textContent = '';
+  if (mode==='novel') {
+    status.textContent='⏳ Генерация вопроса...';
+    document.getElementById('btn-novel').disabled=true;
+    fetch('/question/suggest').then(r=>r.json()).then(data=>{
+      if (data.question) {
+        document.getElementById('queryText').value=data.question;
+        status.textContent=`✓ вопрос от ${data.model?.split('/').pop()||'?'}`;
+        fetchRag();
+      } else { status.textContent='❌ не удалось'; }
+    }).catch(e=>{status.textContent='❌ '+e.message;})
+    .finally(()=>{document.getElementById('btn-novel').disabled=false;});
+  } else if (mode==='clarify') {
+    status.textContent='';
     loadClarificationCandidates();
-  } else {
-    status.textContent = '';
-  }
+  } else { status.textContent=''; }
 }
 
 async function loadClarificationCandidates() {
-  const sel = document.getElementById('clarify-select');
-  sel.innerHTML = '<option value="">— Загрузка...</option>';
+  const sel=document.getElementById('clarify-select');
+  sel.innerHTML='<option value="">— Загрузка...</option>';
   try {
-    const res = await fetch('/question/candidates');
-    const data = await res.json();
-    const cands = data.candidates || [];
-    if (!cands.length) {
-      sel.innerHTML = '<option value="">— Нет артефактов для уточнения</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">— Выберите артефакт...</option>' +
-      cands.map(c => {
-        const label = `[${c.domain}] ${c.verdict || '?'} conf=${c.confidence} · ${c.hypothesis_short.substring(0,50)}...`;
-        return `<option value="${c.id}" data-issues="${c.issues_count}" data-verdict="${c.verdict}">${label}</option>`;
-      }).join('');
-    sel.onchange = () => showClarifyDetail(cands, sel.value);
-  } catch(e) {
-    sel.innerHTML = '<option value="">— Ошибка загрузки</option>';
-  }
+    const res=await fetch('/question/candidates');
+    const data=await res.json();
+    const cands=data.candidates||[];
+    if (!cands.length) { sel.innerHTML='<option value="">— Нет кандидатов</option>'; return; }
+    sel.innerHTML='<option value="">— Выберите артефакт...</option>'+cands.map(c=>{
+      const label=`[${c.domain}] ${c.verdict||'?'} conf=${c.confidence} · ${c.hypothesis_short.substring(0,50)}...`;
+      return `<option value="${c.id}">${label}</option>`;
+    }).join('');
+    sel.onchange=()=>showClarifyDetail(cands,sel.value);
+  } catch(e) { sel.innerHTML='<option value="">— Ошибка</option>'; }
 }
 
-function showClarifyDetail(candidates, id) {
-  const detail = document.getElementById('clarify-detail');
-  if (!id) { detail.style.display = 'none'; return; }
-  const c = candidates.find(x => x.id === id);
-  if (!c) return;
-  detail.style.display = 'block';
-  detail.innerHTML = `
-    <div style="margin-bottom:.3rem"><span style="color:#fbbf24">${c.verdict}</span> conf=${c.confidence} · issues: ${c.issues_count} · spec=${c.specificity}</div>
-    <div style="color:#cbd5e1">${escHtml(c.hypothesis_short)}</div>
-  `;
+function showClarifyDetail(candidates,id) {
+  const detail=document.getElementById('clarify-detail');
+  if(!id){detail.style.display='none';return;}
+  const c=candidates.find(x=>x.id===id);
+  if(!c)return;
+  detail.style.display='block';
+  detail.innerHTML=`<div style="margin-bottom:.3rem"><span style="color:#fbbf24">${c.verdict}</span> conf=${c.confidence} · issues:${c.issues_count} · spec=${c.specificity}</div><div style="color:#cbd5e1">${escHtml(c.hypothesis_short)}</div>`;
 }
 
 async function generateClarification() {
-  const sel = document.getElementById('clarify-select');
-  const artifactId = sel.value;
-  if (!artifactId) return;
-  const status = document.getElementById('mode-status');
-  status.textContent = '⏳ Генерация уточняющего вопроса...';
+  const sel=document.getElementById('clarify-select');
+  const artifactId=sel.value;
+  if(!artifactId)return;
+  const status=document.getElementById('mode-status');
+  status.textContent='⏳ Генерация уточняющего вопроса...';
   try {
-    const res = await fetch(`/question/clarify/${artifactId}`);
-    const data = await res.json();
-    if (data.error) { status.textContent = '❌ ' + data.error; return; }
-    if (data.question) {
-      document.getElementById('queryText').value = data.question;
-      status.textContent = `✓ вопрос от ${data.model?.split('/').pop() || '?'} · отредактируй если нужно`;
-      clarifyData = { artifact_id: artifactId, summary: data.artifact_summary };
+    const res=await fetch(`/question/clarify/${artifactId}`);
+    const data=await res.json();
+    if(data.error){status.textContent='❌ '+data.error;return;}
+    if(data.question){
+      document.getElementById('queryText').value=data.question;
+      status.textContent=`✓ вопрос от ${data.model?.split('/').pop()||'?'}`;
       fetchRag();
     }
-  } catch(e) { status.textContent = '❌ ' + e.message; }
+  } catch(e){status.textContent='❌ '+e.message;}
 }
 
-window.onload = () => { loadHistory(); loadArtifacts(); };
+// ══════════════════════════════════════════════════════
+// TRACKER — MODAL
+// ══════════════════════════════════════════════════════
+let trackerKnownModels = {};
+let trackerProviders = [];
+
+function openTracker() {
+  document.getElementById('trackerModal').style.display='block';
+  loadTrackerStats();
+  loadTrackerProviders();
+}
+function closeTracker() { document.getElementById('trackerModal').style.display='none'; }
+
+document.getElementById('trackerModal').addEventListener('click', e => {
+  if (e.target===document.getElementById('trackerModal')) closeTracker();
+});
+
+function switchTrackerTab(name, btn) {
+  document.querySelectorAll('.tracker-tab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.querySelectorAll('.tracker-tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tracker-'+name).classList.add('active');
+}
+
+// ── Dashboard ──────────────────────────────────────────
+async function loadTrackerStats() {
+  try {
+    const res = await fetch('/tracker/stats');
+    const data = await res.json();
+    const t = data.totals || {};
+    document.getElementById('tracker-date').textContent = `Дата: ${t.date || '—'}`;
+    document.getElementById('sc-req-today').textContent = fmtNum(t.requests_today);
+    document.getElementById('sc-tokens-today').textContent = fmtNum(t.tokens_in_today + t.tokens_out_today);
+    document.getElementById('sc-errors-today').textContent = fmtNum(t.errors_today);
+    document.getElementById('sc-active').textContent = t.active_providers ?? '—';
+
+    // Account table
+    const accBody = document.getElementById('acc-table-body');
+    const accounts = data.accounts || [];
+    accBody.innerHTML = accounts.map(a => {
+      const pc = a.provider==='groq'?'groq':a.provider==='gemini'?'gemini':'hf';
+      const ac = a.account==='Nexus'?'nexus':'roman';
+      return `<tr>
+        <td><span class="t-badge ${pc}">${a.provider}</span></td>
+        <td><span class="t-badge ${ac}">${a.account}</span></td>
+        <td style="text-align:center">${a.key_count}</td>
+        <td>${fmtNum(a.requests_today)}</td>
+        <td>${fmtNum(a.tokens_in_today)}</td>
+        <td>${fmtNum(a.tokens_out_today)}</td>
+        <td style="color:${a.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(a.errors_today)}</td>
+        <td>${fmtNum(a.requests_total)}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" style="text-align:center;color:#475569;padding:1rem">Нет данных</td></tr>';
+
+    // Provider table
+    const provBody = document.getElementById('prov-table-body');
+    const providers = data.providers || [];
+    provBody.innerHTML = providers.map(p => {
+      const pc = p.provider==='groq'?'groq':p.provider==='gemini'?'gemini':'hf';
+      const roles = p.roles.map(r=>`<span class="t-badge ${r==='generator'?'gen':'ver'}">${r==='generator'?'gen':'ver'}</span>`).join(' ');
+      const lastUsed = p.last_used ? new Date(p.last_used).toLocaleTimeString('ru-RU') : '—';
+      const dot = `<span class="enabled-dot" style="background:${p.enabled?'#4ade80':'#ef4444'}"></span>`;
+      const lastErr = p.last_error ? `<span title="${escHtml(p.last_error)}" style="cursor:help;color:#f87171">⚠️</span>` : '';
+      return `<tr>
+        <td>${dot}<span class="t-badge ${pc}">${p.label.split('·')[0].trim()}</span><br><span style="font-size:.65rem;color:#475569">${p.account}</span></td>
+        <td>${roles}</td>
+        <td style="font-size:.72rem;color:#94a3b8">${p.model.split('/').pop().substring(0,20)}</td>
+        <td>${fmtNum(p.requests_today)}</td>
+        <td>${fmtNum(p.tokens_in_today)}</td>
+        <td>${fmtNum(p.tokens_out_today)}</td>
+        <td style="color:${p.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(p.errors_today)} ${lastErr}</td>
+        <td style="font-size:.7rem;color:#64748b">${lastUsed}</td>
+        <td>${p.enabled?'<span style="color:#4ade80">✓ вкл</span>':'<span style="color:#475569">выкл</span>'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="9" style="text-align:center;color:#475569;padding:1rem">Нет данных</td></tr>';
+
+    // Update status dot
+    const dot = document.getElementById('trackerStatusDot');
+    dot.className = 'tracker-dot' + (t.errors_today > 0 ? ' warn' : '');
+  } catch(err) { console.error('tracker stats error:', err); }
+}
+
+async function resetStats(scope) {
+  if (scope==='all' && !confirm('Сбросить ВСЮ статистику? Данные не восстановить.')) return;
+  try {
+    await fetch('/tracker/reset', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
+    await loadTrackerStats();
+  } catch(e) { alert('Ошибка сброса: '+e.message); }
+}
+
+async function refreshTrackerDot() {
+  try {
+    const res = await fetch('/tracker/stats');
+    const data = await res.json();
+    const dot = document.getElementById('trackerStatusDot');
+    const t = data.totals || {};
+    dot.className = 'tracker-dot' + (t.errors_today > 0 ? ' warn' : '');
+  } catch(e) {}
+}
+
+// ── Settings (provider cards) ──────────────────────────
+async function loadTrackerProviders() {
+  try {
+    const res = await fetch('/tracker/providers');
+    const data = await res.json();
+    trackerProviders = data.providers || [];
+    trackerKnownModels = data.known_models || {};
+    renderProviderCards();
+    updateNewProviderModels();
+  } catch(err) { console.error('tracker providers error:', err); }
+}
+
+function renderProviderCards() {
+  const container = document.getElementById('provider-cards');
+  container.innerHTML = trackerProviders.map((p, i) => {
+    const pc = p.provider==='groq'?'groq':p.provider==='gemini'?'gemini':'hf';
+    const roles = p.roles.map(r=>`<span class="t-badge ${r==='generator'?'gen':'ver'}">${r}</span>`).join(' ');
+    const models = (trackerKnownModels[p.provider] || []).map(m => `<option value="${m}" ${m===p.model?'selected':''}>${m}</option>`).join('');
+    const keyMasked = p.api_key ? p.api_key.substring(0,8)+'••••••••'+p.api_key.slice(-4) : '';
+    return `<div class="provider-card ${p.enabled?'':'disabled'}" id="card-${p.id}">
+      <div class="provider-card-header" onclick="toggleCard('${p.id}')">
+        <span class="enabled-dot" style="background:${p.enabled?'#4ade80':'#475569'}"></span>
+        <span class="pc-label">${escHtml(p.label)}</span>
+        <span class="pc-meta">
+          <span class="t-badge ${pc}">${p.provider}</span>
+          <span class="t-badge ${p.account==='Nexus'?'nexus':'roman'}">${p.account}</span>
+          ${roles}
+          <span style="color:#334155">pri=${p.priority}</span>
+        </span>
+        <span style="color:#334155;font-size:.8rem;margin-left:.5rem">▾</span>
+      </div>
+      <div class="provider-card-body" id="body-${p.id}">
+        <div class="field-grid">
+          <div class="f-group"><div class="f-label">Название</div>
+            <input class="f-input" value="${escHtml(p.label)}" onchange="updateProvider(${i},'label',this.value)">
+          </div>
+          <div class="f-group"><div class="f-label">Аккаунт</div>
+            <input class="f-input" value="${escHtml(p.account)}" onchange="updateProvider(${i},'account',this.value)">
+          </div>
+          <div class="f-group full"><div class="f-label">API Ключ</div>
+            <input class="f-input" type="password" value="${escHtml(p.api_key)}" 
+              onchange="updateProvider(${i},'api_key',this.value)"
+              onfocus="this.type='text'" onblur="this.type='password'">
+          </div>
+          <div class="f-group"><div class="f-label">API Base URL</div>
+            <input class="f-input" value="${escHtml(p.api_base)}" onchange="updateProvider(${i},'api_base',this.value)">
+          </div>
+          <div class="f-group"><div class="f-label">Модель</div>
+            <select class="f-input" onchange="updateProvider(${i},'model',this.value)">
+              ${models}
+              <option value="${p.model}" ${!models.includes(p.model)?'selected':''}>— custom: ${p.model}</option>
+            </select>
+          </div>
+          <div class="f-group"><div class="f-label">Приоритет</div>
+            <input class="f-input" type="number" min="1" max="99" value="${p.priority}" onchange="updateProvider(${i},'priority',parseInt(this.value))">
+          </div>
+        </div>
+        <div style="margin-top:.6rem">
+          <div class="f-label" style="margin-bottom:.35rem">Роли</div>
+          <div class="role-checks">
+            <label><input type="checkbox" ${p.roles.includes('generator')?'checked':''} onchange="toggleRole(${i},'generator',this.checked)"> generator</label>
+            <label><input type="checkbox" ${p.roles.includes('verifier')?'checked':''} onchange="toggleRole(${i},'verifier',this.checked)"> verifier</label>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="card-btn" onclick="toggleEnabled(${i})">${p.enabled?'⏸ Отключить':'▶ Включить'}</button>
+          <button class="card-btn danger" onclick="deleteProvider('${p.id}')">🗑 Удалить</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:#475569;text-align:center;padding:2rem">Нет провайдеров</div>';
+}
+
+function toggleCard(id) {
+  const body = document.getElementById('body-'+id);
+  body.classList.toggle('open');
+}
+
+function updateProvider(idx, field, value) {
+  trackerProviders[idx][field] = value;
+}
+
+function toggleRole(idx, role, checked) {
+  const roles = trackerProviders[idx].roles || [];
+  if (checked && !roles.includes(role)) { trackerProviders[idx].roles = [...roles, role]; }
+  else if (!checked) { trackerProviders[idx].roles = roles.filter(r=>r!==role); }
+}
+
+function toggleEnabled(idx) {
+  trackerProviders[idx].enabled = !trackerProviders[idx].enabled;
+  renderProviderCards();
+}
+
+async function saveAllProviders() {
+  try {
+    const res = await fetch('/tracker/providers', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({providers: trackerProviders})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      renderProviderCards();
+      alert(`✅ Сохранено ${data.count} провайдеров`);
+    }
+  } catch(err) { alert('Ошибка: '+err.message); }
+}
+
+async function deleteProvider(pid) {
+  if (!confirm(`Удалить провайдера ${pid}?`)) return;
+  try {
+    const res = await fetch(`/tracker/providers/${pid}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.ok) await loadTrackerProviders();
+  } catch(err) { alert('Ошибка удаления: '+err.message); }
+}
+
+// ── Add provider form ──────────────────────────────────
+function toggleAddForm() {
+  const form = document.getElementById('addProviderForm');
+  form.classList.toggle('open');
+}
+
+function updateNewProviderModels() {
+  const prov = document.getElementById('np-provider')?.value || 'groq';
+  const sel = document.getElementById('np-model');
+  if (!sel) return;
+  const models = trackerKnownModels[prov] || [];
+  sel.innerHTML = models.map(m=>`<option value="${m}">${m}</option>`).join('');
+  // Set default base url
+  const baseMap = {
+    groq: 'https://api.groq.com/openai/v1',
+    gemini: 'https://generativelanguage.googleapis.com/v1beta',
+    huggingface: 'https://api-inference.huggingface.co/v1',
+  };
+  const base = document.getElementById('np-base');
+  if (base && baseMap[prov]) base.value = baseMap[prov];
+}
+
+function onNewProviderChange() { updateNewProviderModels(); }
+
+async function addProvider() {
+  const id = document.getElementById('np-id').value.trim().replace(/\s+/g,'_');
+  const provider = document.getElementById('np-provider').value;
+  const account = document.getElementById('np-account').value.trim();
+  const label = document.getElementById('np-label').value.trim();
+  const api_key = document.getElementById('np-key').value.trim();
+  const api_base = document.getElementById('np-base').value.trim();
+  const model = document.getElementById('np-model').value;
+  const roles = [];
+  if (document.getElementById('np-role-gen').checked) roles.push('generator');
+  if (document.getElementById('np-role-ver').checked) roles.push('verifier');
+
+  if (!id || !api_key || !roles.length) { alert('Заполните: ID, API ключ и выберите хотя бы одну роль'); return; }
+
+  try {
+    const res = await fetch('/tracker/providers/add', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({id, provider, account, label: label||id, api_key, api_base, model, roles, enabled:true, priority:99})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toggleAddForm();
+      await loadTrackerProviders();
+    }
+  } catch(err) { alert('Ошибка: '+err.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function fmtNum(n) {
+  if (n === undefined || n === null) return '—';
+  if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if (n >= 1000) return (n/1000).toFixed(1)+'K';
+  return String(n);
+}
+
+function lerpColor(a, b, t) {
+  const ah=parseInt(a.replace('#',''),16), bh=parseInt(b.replace('#',''),16);
+  const ar=(ah>>16)&0xff,ag=(ah>>8)&0xff,ab=ah&0xff;
+  const br=(bh>>16)&0xff,bg=(bh>>8)&0xff,bb=bh&0xff;
+  const rr=Math.round(ar+(br-ar)*t),rg=Math.round(ag+(bg-ag)*t),rb=Math.round(ab+(bb-ab)*t);
+  return `#${((1<<24)+(rr<<16)+(rg<<8)+rb).toString(16).slice(1)}`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+window.onload = () => { loadHistory(); loadArtifacts(); refreshTrackerDot(); };
 </script>
 </body>
 </html>

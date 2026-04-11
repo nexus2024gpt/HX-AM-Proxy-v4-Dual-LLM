@@ -47,3 +47,8 @@ DEFINITIONS:
 - FALSE = mechanism collapses on translation (TERMINOLOGICAL) OR broken logic
 
 DO NOT ADD TEXT OUTSIDE JSON.
+
+If you need to explain something, put the explanation inside the JSON as a "note" field, but still output ONLY the JSON object.
+Example of correct output:
+{"translation": {...}, "verdict": "VALID", "confidence": 0.9, "issues": [], "reasoning": "..."}
+Never add text before or after the JSON.

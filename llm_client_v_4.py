@@ -1,183 +1,177 @@
-import os
-import requests
-from dotenv import load_dotenv
+# llm_client_v_4.py — HX-AM v4 LLM Client
+"""
+Полностью перестроен на APIUsageTracker.
+Жёстко закодированные ключи убраны — всё из config/providers.json.
 
-load_dotenv()
+Цепочки вызовов:
+  generate(): role="generator"  → Groq Nexus → Groq Roman → HF Nexus → HF Roman
+  verify():   role="verifier"   → Gemini Nexus (×3) → Gemini Roman (×2) → HF Nexus → HF Roman
+
+Порядок определяется tracker.get_providers_for_role() на основе
+account-level нагрузки сегодня — автоматически балансирует между Nexus и Roman.
+
+Токены:
+  Groq / HF:   response.usage.prompt_tokens / completion_tokens
+  Gemini:       response.usageMetadata.promptTokenCount / candidatesTokenCount
+  Фоллбэк:     len(text) // 4  (grубая оценка если API не вернул usage)
+"""
+
+import logging
+import requests
+from api_usage_tracker import tracker, ProviderConfig
+
+logger = logging.getLogger("HXAM.llm")
+
+
+def _estimate_tokens(text: str) -> int:
+    """Грубая оценка: ~4 символа на токен для смешанного EN/RU текста."""
+    return max(1, len(text) // 4)
 
 
 class LLMClient:
-    def __init__(self):
-        # ── Groq (генератор, уровни 1-2) ──────────────────────
-        self.gen_keys = [
-            k for k in [
-                os.getenv("GENERATOR_API_KEY"),
-                os.getenv("GENERATOR_API_KEY_2"),
-            ] if k
-        ]
-        self.gen_base  = os.getenv("GENERATOR_API_BASE", "https://api.groq.com/openai/v1")
-        self.gen_model = os.getenv("GENERATOR_MODEL", "llama-3.3-70b-versatile")
 
-        # ── Gemini (верификатор, уровни 1-5) ──────────────────
-        self.ver_keys = [
-            k for k in [
-                os.getenv("VERIFIER_API_KEY"),
-                os.getenv("VERIFIER_API_KEY_2"),
-                os.getenv("VERIFIER_API_KEY_3"),
-                os.getenv("VERIFIER_API_KEY_4"),
-                os.getenv("VERIFIER_API_KEY_5"),
-            ] if k
-        ]
-        self.ver_base  = os.getenv("VERIFIER_API_BASE", "https://generativelanguage.googleapis.com/v1beta")
-        self.ver_model = os.getenv("VERIFIER_MODEL", "gemini-2.5-flash")
-
-        # ── OpenRouter (резервный 1) ───────────────────────────
-        self.or_api_key   = os.getenv("OPENROUTER_API_KEY")
-        self.or_base      = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
-        self.or_gen_model = os.getenv("OPENROUTER_GEN_MODEL", "anthropic/claude-3-haiku")
-        self.or_ver_model = os.getenv("OPENROUTER_VER_MODEL", "anthropic/claude-3-haiku")
-
-        # ── HuggingFace (резервный 2, уровни HF1-HF2) ─────────
-        self.hf_keys = [
-            k for k in [
-                os.getenv("HF_API_KEY"),
-                os.getenv("HF_API_KEY_2"),
-            ] if k
-        ]
-        self.hf_base  = "https://api-inference.huggingface.co/v1"
-        self.hf_model = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
-
-    # ══════════════════════════════════════════════
-    # ГЕНЕРАТОР
-    # Цепочка: Groq#1 → Groq#2 → OpenRouter → HF#1 → HF#2
-    # ══════════════════════════════════════════════
+    # ── Публичные методы ─────────────────────────────────────
 
     def generate(self, prompt: str) -> tuple[str, str]:
-        # Уровни 1-2: все Groq-ключи по очереди
-        for i, key in enumerate(self.gen_keys, 1):
-            text, _ = self._call_openai_compat(
-                base=self.gen_base, api_key=key,
-                model=self.gen_model, prompt=prompt,
-                label=f"Groq#{i}",
-            )
-            if text:
-                return text, f"groq/{self.gen_model}"
+        """
+        Генератор гипотез.
+        Перебирает провайдеров с role="generator" в порядке ротации трекера.
+        Возвращает (text, model_label).
+        """
+        providers = tracker.get_providers_for_role("generator")
+        if not providers:
+            logger.error("LLMClient.generate: нет доступных провайдеров для роли generator")
+            return "[Generator error] no providers configured", "none"
 
-        # Уровень 3: OpenRouter
-        text, _ = self._call_openai_compat(
-            base=self.or_base, api_key=self.or_api_key,
-            model=self.or_gen_model, prompt=prompt,
-            label="OpenRouter[gen]",
-        )
-        if text:
-            return text, f"openrouter/{self.or_gen_model}"
+        for p in providers:
+            logger.debug(f"LLMClient.generate → trying {p.label}")
+            text, tokens_in, tokens_out, err_msg = self._call(p, prompt)
 
-        # Уровни 4-5: все HF-ключи по очереди
-        for i, key in enumerate(self.hf_keys, 1):
-            text, _ = self._call_openai_compat(
-                base=self.hf_base, api_key=key,
-                model=self.hf_model, prompt=prompt,
-                label=f"HuggingFace#{i}[gen]",
-                temperature=0.5,
-            )
             if text:
-                return text, f"huggingface/{self.hf_model}"
+                tracker.record_call(p.id, tokens_in=tokens_in, tokens_out=tokens_out)
+                logger.info(f"LLMClient.generate ✓ {p.label} | in={tokens_in} out={tokens_out}")
+                return text, f"{p.provider}/{p.model}"
+            else:
+                tracker.record_call(p.id, error=True, error_msg=err_msg)
+                logger.warning(f"LLMClient.generate ✗ {p.label}: {err_msg[:80]}")
 
         return "[Generator error] all providers failed", "none"
 
-    # ══════════════════════════════════════════════
-    # ВЕРИФИКАТОР
-    # Цепочка: Gemini#1→#5 → OpenRouter → HF#1 → HF#2
-    # ══════════════════════════════════════════════
-
     def verify(self, statement: str, context: str = "") -> tuple[str, str]:
-        # Уровни 1-5: все Gemini-ключи по очереди
-        for i, key in enumerate(self.ver_keys, 1):
-            text = self._call_gemini(statement, context, api_key=key)
-            if text:
-                return text, f"gemini/{self.ver_model}"
-
-        # Уровень 6: OpenRouter
-        full_prompt = f"Context: {context}\n\n{statement}" if context else statement
-        text, _ = self._call_openai_compat(
-            base=self.or_base, api_key=self.or_api_key,
-            model=self.or_ver_model, prompt=full_prompt,
-            label="OpenRouter[ver]",
+        """
+        Верификатор гипотез.
+        Перебирает провайдеров с role="verifier" в порядке ротации трекера.
+        Возвращает (text, model_label).
+        """
+        full_prompt = (
+            f"Context: {context}\n\n{statement}" if context else statement
         )
-        if text:
-            return text, f"openrouter/{self.or_ver_model}"
+        providers = tracker.get_providers_for_role("verifier")
+        if not providers:
+            logger.error("LLMClient.verify: нет доступных провайдеров для роли verifier")
+            return "[Verifier error] no providers configured", "none"
 
-        # Уровни 7-8: все HF-ключи по очереди
-        for i, key in enumerate(self.hf_keys, 1):
-            text, _ = self._call_openai_compat(
-                base=self.hf_base, api_key=key,
-                model=self.hf_model, prompt=full_prompt,
-                label=f"HuggingFace#{i}[ver]",
-                temperature=0.3,
-            )
+        for p in providers:
+            logger.debug(f"LLMClient.verify → trying {p.label}")
+            text, tokens_in, tokens_out, err_msg = self._call(p, full_prompt)
+
             if text:
-                return text, f"huggingface/{self.hf_model}"
+                tracker.record_call(p.id, tokens_in=tokens_in, tokens_out=tokens_out)
+                logger.info(f"LLMClient.verify ✓ {p.label} | in={tokens_in} out={tokens_out}")
+                return text, f"{p.provider}/{p.model}"
+            else:
+                tracker.record_call(p.id, error=True, error_msg=err_msg)
+                logger.warning(f"LLMClient.verify ✗ {p.label}: {err_msg[:80]}")
 
         return "[Verifier error] all providers failed", "none"
 
-    # ══════════════════════════════════════════════
-    # ВНУТРЕННИЕ МЕТОДЫ
-    # ══════════════════════════════════════════════
+    # ── Диспетчер ────────────────────────────────────────────
+
+    def _call(
+        self, p: ProviderConfig, prompt: str
+    ) -> tuple[str, int, int, str]:
+        """
+        Возвращает (text, tokens_in, tokens_out, error_msg).
+        error_msg пустой при успехе.
+        """
+        if not p.api_key:
+            return "", 0, 0, "api_key not set"
+        try:
+            if p.provider == "gemini":
+                return self._call_gemini(p, prompt)
+            else:
+                return self._call_openai_compat(p, prompt)
+        except Exception as e:
+            return "", 0, 0, str(e)[:200]
+
+    # ── OpenAI-совместимый вызов (Groq, HuggingFace) ─────────
 
     def _call_openai_compat(
-        self,
-        base: str,
-        api_key: str,
-        model: str,
-        prompt: str,
-        label: str = "",
-        temperature: float = 0.7,
-    ) -> tuple[str, str]:
-        if not api_key:
-            return "", ""
-        url = f"{base}/chat/completions"
+        self, p: ProviderConfig, prompt: str
+    ) -> tuple[str, int, int, str]:
+        url = f"{p.api_base}/chat/completions"
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {p.api_key}",
             "Content-Type": "application/json",
         }
-        if "openrouter" in base:
-            headers["HTTP-Referer"] = "https://hxam.local"
-            headers["X-Title"] = "HX-AM v4"
 
-        data = {
-            "model": model,
+        # HF чуть стабильнее на 0.5, для чистого верификатора — 0.3
+        if p.provider == "huggingface":
+            temperature = 0.5
+        elif p.roles == ["verifier"]:
+            temperature = 0.3
+        else:
+            temperature = 0.7
+
+        payload = {
+            "model": p.model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
             "max_tokens": 1024,
         }
         try:
-            resp = requests.post(url, json=data, headers=headers, timeout=60)
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
             resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
+            rj = resp.json()
+            content = rj["choices"][0]["message"]["content"]
+            usage = rj.get("usage", {})
+            tokens_in = usage.get("prompt_tokens", _estimate_tokens(prompt))
+            tokens_out = usage.get("completion_tokens", _estimate_tokens(content or ""))
             if content and content.strip():
-                return content, model
-            print(f"[{label}] empty content")
-            return "", ""
+                return content, tokens_in, tokens_out, ""
+            return "", tokens_in, 0, "empty content in response"
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else 0
+            return "", 0, 0, f"HTTP {status}: {str(e)[:120]}"
         except Exception as e:
-            print(f"[{label}] error: {e}")
-            return "", ""
+            return "", 0, 0, str(e)[:200]
 
-    def _call_gemini(self, statement: str, context: str = "", api_key: str = "") -> str:
-        if not api_key:
-            return ""
+    # ── Gemini REST API ───────────────────────────────────────
+
+    def _call_gemini(
+        self, p: ProviderConfig, prompt: str
+    ) -> tuple[str, int, int, str]:
         url = (
-            f"{self.ver_base}/models/{self.ver_model}"
-            f":generateContent?key={api_key}"
+            f"{p.api_base}/models/{p.model}"
+            f":generateContent?key={p.api_key}"
         )
-        full_prompt = (
-            f"Context: {context}\n\nStatement to verify:\n{statement}"
-            if context else statement
-        )
-        payload = {"contents": [{"parts": [{"text": full_prompt}]}]}
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": 4096},
+        }
         try:
             resp = requests.post(url, json=payload, timeout=60)
             resp.raise_for_status()
-            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            return text if text and text.strip() else ""
+            rj = resp.json()
+            text = rj["candidates"][0]["content"]["parts"][0]["text"]
+            usage = rj.get("usageMetadata", {})
+            tokens_in = usage.get("promptTokenCount", _estimate_tokens(prompt))
+            tokens_out = usage.get("candidatesTokenCount", _estimate_tokens(text or ""))
+            if text and text.strip():
+                return text, tokens_in, tokens_out, ""
+            return "", tokens_in, 0, "empty content in response"
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else 0
+            return "", 0, 0, f"HTTP {status}: {str(e)[:120]}"
         except Exception as e:
-            print(f"[Gemini] error: {e}")
-            return ""
+            return "", 0, 0, str(e)[:200]

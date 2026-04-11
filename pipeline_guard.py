@@ -126,8 +126,18 @@ class PipelineGuard:
                                     f"Response: {raw[:120]}")
         return ValidationResult(True)
 
-    def validate_ver(self, ver: dict, model: str) -> ValidationResult:
+    def validate_ver(self, ver: dict, model: str, raw: Optional[str] = None) -> ValidationResult:
         """Проверяет распарсенный объект верификатора."""
+        if not ver and raw:
+            try:
+                from hxam_v_4_server import extract_json
+            except ImportError as e:
+                logger.warning(f"validate_ver: failed to import extract_json fallback: {e}")
+            else:
+                ver = extract_json(raw)
+                if ver:
+                    logger.info("validate_ver: successfully reparsed verifier raw response")
+
         if not ver:
             return ValidationResult(False, FailureCode.VER_EMPTY_JSON,
                                     f"Verifier JSON parse failed (model: {model})")

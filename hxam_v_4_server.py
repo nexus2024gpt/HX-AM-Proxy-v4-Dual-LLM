@@ -1,8 +1,8 @@
-# HX-AM v4 Full Server — с защитным слоем пайплайна
+# HX-AM v4 Full Server — с защитным слоем пайплайна + API Usage Tracker
 import os, json, time, hashlib, logging, re
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -14,6 +14,7 @@ from archivist import Archivist
 from invariant_engine import SemanticSpace, InvariantGraph, PhaseDetector, process_with_invariants
 from pipeline_guard import PipelineGuard, RollbackManager, QuarantineLog
 from question_generator import QuestionGenerator
+from api_usage_tracker import tracker
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,24 @@ class QueryRequest(BaseModel):
     domain: str = "general"
     x_coordinate: float = 500.0
 
+class ProvidersUpdateRequest(BaseModel):
+    providers: List[Dict[str, Any]]
+
+class ProviderAddRequest(BaseModel):
+    id: str
+    provider: str
+    account: str
+    label: str
+    api_key: str
+    api_base: str
+    model: str
+    roles: List[str]
+    enabled: bool = True
+    priority: int = 99
+
+class ResetRequest(BaseModel):
+    scope: str = "today"
+
 
 def load_prompt(name: str) -> str:
     path = Path("prompts") / name
@@ -48,19 +67,69 @@ def load_prompt(name: str) -> str:
         return ""
     return path.read_text(encoding="utf-8")
 
-
 GEN_PROMPT = load_prompt("generator_prompt.txt")
 VER_PROMPT = load_prompt("verifier_prompt.txt")
 
 
 def extract_json(text: str) -> Dict[str, Any]:
-    match = re.search(r"\{[\s\S]*\}", text)
-    if not match:
+    """
+    Извлекает JSON из ответа LLM.
+    Устойчив к:
+    - markdown-блокам ```json ... ```
+    - пояснительному тексту до и после JSON
+    - множественным фигурным скобкам (берёт первый полный объект)
+    - битым кавычкам (пытается восстановить)
+    """
+    if not text:
         return {}
+
+    # 1. Удаляем markdown-обёртки
+    text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"```\s*", "", text)
+
+    # 2. Ищем первую '{' и последнюю '}'
+    start = text.find('{')
+    end = text.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        logger.warning(f"extract_json: no braces found in: {text[:200]}")
+        return {}
+
+    json_candidate = text[start:end+1]
+
+    # 3. Пробуем распарсить напрямую
     try:
-        return json.loads(match.group(0))
+        return json.loads(json_candidate)
+    except json.JSONDecodeError:
+        pass
+
+    # 4. Пробуем найти вложенный JSON (например, если внутри есть другие скобки)
+    # Ищем первый полный объект (жадный поиск)
+    try:
+        stack = []
+        for i, ch in enumerate(json_candidate):
+            if ch == '{':
+                stack.append(i)
+            elif ch == '}':
+                if stack:
+                    start_idx = stack.pop()
+                    if not stack:  # нашли полный объект
+                        candidate = json_candidate[start_idx:i+1]
+                        try:
+                            return json.loads(candidate)
+                        except Exception:
+                            continue
     except Exception:
-        return {}
+        pass
+
+    # 5. Последняя попытка: заменить ' на "" (если ответ использует одинарные кавычки)
+    try:
+        fixed = json_candidate.replace("'", '"')
+        return json.loads(fixed)
+    except Exception:
+        pass
+
+    logger.warning(f"extract_json: failed to parse JSON from: {json_candidate[:200]}")
+    return {}
 
 
 def resolve_domain(gen: dict, req_domain: str) -> str:
@@ -82,7 +151,6 @@ def save_artifact(job_id: str, data: Dict[str, Any]) -> Path:
 
 
 def log_history(entry: Dict[str, Any]):
-    """Только для успешных запросов."""
     path = Path("chat_history")
     path.mkdir(exist_ok=True)
     file = path / "history.jsonl"
@@ -92,69 +160,27 @@ def log_history(entry: Dict[str, Any]):
 
 def _rejected_response(job_id: str, code: str, reason: str, stage: str) -> dict:
     return {
-        "job_id": job_id,
-        "rejected": True,
-        "stage": stage,
-        "failure_code": code,
-        "reason": reason,
-        "generation": None,
-        "verification": None,
-        "saved": False,
-        "artifact": None,
-        "domain": None,
+        "job_id": job_id, "rejected": True, "stage": stage,
+        "failure_code": code, "reason": reason,
+        "generation": None, "verification": None,
+        "saved": False, "artifact": None, "domain": None,
     }
 
 
-# ══════════════════════════════════════════════
-# RAG ANTI-AMPLIFICATION FILTER  (v4.2)
-# ══════════════════════════════════════════════
-
-def filter_rag_diversity(
-    similar: List[dict],
-    max_per_domain: int = 1,
-    sim_cap: float = 0.88,
-) -> List[dict]:
-    """
-    Фильтрует RAG-контекст против петли усиления шаблонов.
-
-    Два правила:
-      1. sim >= sim_cap (0.88) → отсечь.
-         Если инвариант настолько похож на запрос, генератор почти
-         гарантированно скопирует терминологию, а не структуру.
-
-      2. max_per_domain = 1.
-         Не показывать 2+ инварианта из одного домена — это усиливает
-         доминирующий шаблон и блокирует разнообразие.
-
-    Возвращает отфильтрованный список (может быть пустым — это нормально).
-    """
+def filter_rag_diversity(similar: List[dict], max_per_domain: int = 1, sim_cap: float = 0.88) -> List[dict]:
     seen_domains: dict = {}
     result = []
     for s in similar:
         sim = s.get("similarity", 0.0)
         domain = s.get("domain", "general")
-
         if sim >= sim_cap:
-            logger.debug(
-                f"RAG filter: dropped {s['id'][:8]} sim={sim} >= cap={sim_cap}"
-            )
             continue
-
         if seen_domains.get(domain, 0) >= max_per_domain:
-            logger.debug(
-                f"RAG filter: dropped {s['id'][:8]} domain={domain} (already have {max_per_domain})"
-            )
             continue
-
         seen_domains[domain] = seen_domains.get(domain, 0) + 1
         result.append(s)
-
     if len(similar) != len(result):
-        logger.info(
-            f"RAG filter: {len(similar)} → {len(result)} "
-            f"(dropped {len(similar) - len(result)}: "
-            f"sim_cap={sim_cap}, max_per_domain={max_per_domain})"
-        )
+        logger.info(f"RAG filter: {len(similar)} -> {len(result)} (dropped {len(similar)-len(result)})")
     return result
 
 
@@ -166,12 +192,7 @@ def process_query(req: QueryRequest):
     ver_model = "unknown"
 
     try:
-        # ══════════════════════════════════════
-        # ЭТАП 1 — ГЕНЕРАЦИЯ
-        # ══════════════════════════════════════
         rag_raw = semantic_space.nearest(req.text, top_k=5, threshold=0.55)
-
-        # Фильтр против петли усиления шаблонов
         rag_similar = filter_rag_diversity(rag_raw, max_per_domain=1, sim_cap=0.88)
 
         rag_block = ""
@@ -187,32 +208,23 @@ X: {req.x_coordinate}
 User input:
 {req.text}
 """
-        logger.info(
-            f"Job {job_id}: generating... "
-            f"rag_raw={len(rag_raw)} rag_filtered={len(rag_similar)}"
-        )
+        logger.info(f"Job {job_id}: generating... rag_raw={len(rag_raw)} rag_filtered={len(rag_similar)}")
         gen_raw, gen_model = client.generate(gen_input)
 
         vr = guard.validate_gen_raw(gen_raw, gen_model)
         if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason,
-                              "generation", gen_model=gen_model)
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation", gen_model=gen_model)
             return _rejected_response(job_id, vr.code, vr.reason, "generation")
 
         gen = extract_json(gen_raw)
-
         vr = guard.validate_gen(gen, gen_model)
         if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason,
-                              "generation", gen_model=gen_model)
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation", gen_model=gen_model)
             return _rejected_response(job_id, vr.code, vr.reason, "generation")
 
         domain = resolve_domain(gen, req.domain)
-        logger.info(f"Job {job_id}: gen OK → b_sync={gen.get('b_sync')} domain={domain} model={gen_model}")
+        logger.info(f"Job {job_id}: gen OK -> b_sync={gen.get('b_sync')} domain={domain} model={gen_model}")
 
-        # ══════════════════════════════════════
-        # ЭТАП 2 — ВЕРИФИКАЦИЯ
-        # ══════════════════════════════════════
         ver_input = f"""{VER_PROMPT}
 
 Hypothesis:
@@ -223,25 +235,19 @@ Hypothesis:
 
         vr = guard.validate_ver_raw(ver_raw, ver_model)
         if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason,
-                              "verification", gen_model=gen_model, ver_model=ver_model)
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "verification", gen_model=gen_model, ver_model=ver_model)
             return _rejected_response(job_id, vr.code, vr.reason, "verification")
 
         ver = extract_json(ver_raw)
-
-        vr = guard.validate_ver(ver, ver_model)
+        vr = guard.validate_ver(ver, ver_model, raw=ver_raw)
         if not vr:
-            quarantine.record(job_id, req.text, vr.code, vr.reason,
-                              "verification", gen_model=gen_model, ver_model=ver_model)
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "verification", gen_model=gen_model, ver_model=ver_model)
             return _rejected_response(job_id, vr.code, vr.reason, "verification")
 
         verdict = ver.get("verdict", "FALSE")
         confidence = ver.get("confidence", 0)
-        logger.info(f"Job {job_id}: ver OK → verdict={verdict} conf={confidence} model={ver_model}")
+        logger.info(f"Job {job_id}: ver OK -> verdict={verdict} conf={confidence} model={ver_model}")
 
-        # ══════════════════════════════════════
-        # ЭТАП 3 — РЕШЕНИЕ О СОХРАНЕНИИ
-        # ══════════════════════════════════════
         save = False
         if verdict == "VALID" and confidence > 0.6:
             save = True
@@ -249,21 +255,12 @@ Hypothesis:
             save = True
 
         result = {
-            "job_id": job_id,
-            "generation": gen,
-            "verification": ver,
-            "saved": save,
-            "artifact": None,
-            "domain": domain,
-            "rag_context": rag_similar,
-            "rag_dropped": len(rag_raw) - len(rag_similar),
-            "gen_model": gen_model,
-            "ver_model": ver_model,
+            "job_id": job_id, "generation": gen, "verification": ver,
+            "saved": save, "artifact": None, "domain": domain,
+            "rag_context": rag_similar, "rag_dropped": len(rag_raw) - len(rag_similar),
+            "gen_model": gen_model, "ver_model": ver_model,
         }
 
-        # ══════════════════════════════════════
-        # ЭТАП 4 — INVARIANT ENGINE
-        # ══════════════════════════════════════
         rollback.snapshot_space(len(semantic_space.vectors))
         rollback.register_graph_node(job_id)
 
@@ -275,23 +272,15 @@ Hypothesis:
         structural = result.get("structural", {})
         phase_signal = structural.get("phase_signal", {})
         logger.info(
-            f"Job {job_id}: engine OK → type={structural.get('artifact_type')} "
-            f"stability={structural.get('stability')} domain={domain} "
-            f"phase={phase_signal.get('signal')} "
-            f"unique_domains={phase_signal.get('unique_domains')}"
+            f"Job {job_id}: engine OK -> type={structural.get('artifact_type')} "
+            f"phase={phase_signal.get('signal')} unique_domains={phase_signal.get('unique_domains')}"
         )
-
-        # ══════════════════════════════════════
-        # ЭТАП 5 — СОХРАНЕНИЕ АРТЕФАКТОВ
-        # ══════════════════════════════════════
 
         if structural.get("is_bridge"):
             portal_path = Path("artifacts") / f"{job_id}.hyx-portal.json"
             portal_data = {
-                "id": job_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "type": "hyx-portal",
-                "domain": domain,
+                "id": job_id, "created_at": datetime.now(timezone.utc).isoformat(),
+                "type": "hyx-portal", "domain": domain,
                 "hypothesis": gen.get("hypothesis", ""),
                 "centrality": structural.get("centrality", 0),
                 "similar_invariants": structural.get("similar_invariants", []),
@@ -299,7 +288,6 @@ Hypothesis:
             }
             portal_path.write_text(json.dumps(portal_data, indent=2, ensure_ascii=False))
             rollback.register_file(portal_path)
-            logger.info(f"Job {job_id}: hyx-portal.json saved")
 
         if save:
             artifact_file = save_artifact(job_id, {
@@ -308,27 +296,17 @@ Hypothesis:
             })
             rollback.register_file(artifact_file)
             result["artifact"] = str(artifact_file)
-
             try:
                 archivist_result = archivist.process(job_id)
                 result["archivist"] = archivist_result
-                logger.info(
-                    f"Job {job_id}: archivist → "
-                    f"novelty={archivist_result.get('novelty')} "
-                    f"score={archivist_result.get('novelty_score')}"
-                )
             except Exception as e:
-                logger.warning(f"Job {job_id}: archivist failed — {e}")
+                logger.warning(f"Job {job_id}: archivist failed - {e}")
                 result["archivist"] = None
 
-        # ══════════════════════════════════════
-        # УСПЕХ
-        # ══════════════════════════════════════
         log_history({
             "time": time.time(), "query": req.text, "domain": domain,
-            "gen": result["generation"], "ver": ver,
-            "saved": save, "structural": structural,
-            "rag_context": rag_similar,
+            "gen": result["generation"], "ver": ver, "saved": save,
+            "structural": structural, "rag_context": rag_similar,
             "rag_dropped": len(rag_raw) - len(rag_similar),
         })
 
@@ -336,43 +314,30 @@ Hypothesis:
         return result
 
     except Exception as exc:
-        logger.error(f"Job {job_id}: unexpected exception — {exc}", exc_info=True)
+        logger.error(f"Job {job_id}: unexpected exception - {exc}", exc_info=True)
         actions = rollback.rollback(semantic_space, invariant_graph)
-        quarantine.record(
-            job_id, req.text,
-            "PIPELINE_EXCEPTION", str(exc),
-            "unknown",
-            gen_model=gen_model, ver_model=ver_model,
-            rollback_actions=actions,
-        )
+        quarantine.record(job_id, req.text, "PIPELINE_EXCEPTION", str(exc), "unknown",
+                          gen_model=gen_model, ver_model=ver_model, rollback_actions=actions)
         return _rejected_response(job_id, "PIPELINE_EXCEPTION", str(exc), "unknown")
 
 
 # ══════════════════════════════════════
-# API
+# ОСНОВНЫЕ ЭНДПОИНТЫ
 # ══════════════════════════════════════
 
 @app.post("/query")
 def query(req: QueryRequest):
     return process_query(req)
 
-
 @app.get("/quarantine")
 def get_quarantine(limit: int = 20):
     return {"quarantine": quarantine.recent(limit)}
-
 
 @app.get("/rag/context")
 def rag_context(text: str, top_k: int = 3):
     similar = semantic_space.nearest(text, top_k=top_k, threshold=0.55)
     filtered = filter_rag_diversity(similar, max_per_domain=1, sim_cap=0.88)
-    return {
-        "similar": filtered,
-        "similar_raw": similar,
-        "count": len(filtered),
-        "dropped": len(similar) - len(filtered),
-    }
-
+    return {"similar": filtered, "similar_raw": similar, "count": len(filtered), "dropped": len(similar)-len(filtered)}
 
 @app.get("/history")
 def history():
@@ -388,18 +353,14 @@ def history():
             continue
     return {"history": result}
 
-
 @app.get("/artifacts")
 def artifacts():
     path = Path("artifacts")
     if not path.exists():
         return {"artifacts": []}
-    files = sorted(
-        [f for f in path.glob("*.json") if f.stem != "invariant_graph"],
-        key=lambda f: f.stat().st_mtime, reverse=True,
-    )
+    files = sorted([f for f in path.glob("*.json") if f.stem != "invariant_graph"],
+                   key=lambda f: f.stat().st_mtime, reverse=True)
     return {"artifacts": [{"file": f.name} for f in files[:20]]}
-
 
 @app.get("/artifact/{name}")
 def artifact(name: str):
@@ -408,26 +369,17 @@ def artifact(name: str):
         raise HTTPException(404)
     return json.loads(file.read_text())
 
-
 @app.get("/graph/data")
 def graph_data():
     G = invariant_graph.G
     nodes = []
     for node_id, attrs in G.nodes(data=True):
-        nodes.append({
-            "id": node_id,
-            "domain": attrs.get("domain", "general"),
-            "b_sync": attrs.get("b_sync", 0.0),
-            "stability": attrs.get("stability", "unknown"),
-        })
+        nodes.append({"id": node_id, "domain": attrs.get("domain","general"),
+                       "b_sync": attrs.get("b_sync",0.0), "stability": attrs.get("stability","unknown")})
     links = []
     for u, v, attrs in G.edges(data=True):
-        links.append({
-            "source": u, "target": v,
-            "weight": attrs.get("weight", 0.0),
-            "similarity": attrs.get("similarity", 0.0),
-            "domain_distance": attrs.get("domain_distance", 0.0),
-        })
+        links.append({"source": u, "target": v, "weight": attrs.get("weight",0.0),
+                       "similarity": attrs.get("similarity",0.0), "domain_distance": attrs.get("domain_distance",0.0)})
     clusters = [list(c) for c in invariant_graph.get_invariant_clusters()]
     bridge_nodes = {n for e in invariant_graph.get_bridges() for n in e}
     cluster_map = {}
@@ -437,29 +389,19 @@ def graph_data():
     for node in nodes:
         node["cluster"] = cluster_map.get(node["id"], -1)
         node["is_bridge"] = node["id"] in bridge_nodes
-    return {
-        "nodes": nodes, "links": links,
-        "meta": {
-            "total_nodes": len(nodes), "total_edges": len(links),
-            "cluster_count": len(clusters), "bridge_count": len(bridge_nodes),
-        }
-    }
-
+    return {"nodes": nodes, "links": links, "meta": {"total_nodes": len(nodes), "total_edges": len(links),
+            "cluster_count": len(clusters), "bridge_count": len(bridge_nodes)}}
 
 @app.get("/graph")
 def graph():
     clusters = [list(c) for c in invariant_graph.get_invariant_clusters()]
     bridges = invariant_graph.get_bridges()
-    return {
-        "nodes": len(invariant_graph.G.nodes), "edges": len(invariant_graph.G.edges),
-        "clusters": clusters, "bridges": bridges, "cluster_count": len(clusters),
-    }
-
+    return {"nodes": len(invariant_graph.G.nodes), "edges": len(invariant_graph.G.edges),
+            "clusters": clusters, "bridges": bridges, "cluster_count": len(clusters)}
 
 @app.get("/phase")
 def phase():
     return phase_detector.detect_phase_transition(semantic_space)
-
 
 @app.get("/")
 def ui():
@@ -470,30 +412,71 @@ def ui():
         return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
-
 @app.get("/question/suggest")
 def suggest_question():
     try:
-        result = question_gen.suggest_novel()
-        return result
+        return question_gen.suggest_novel()
     except Exception as e:
-        logger.error(f"QuestionGenerator Mode A error: {e}")
         raise HTTPException(500, str(e))
-
 
 @app.get("/question/clarify/{artifact_id}")
 def clarify_artifact(artifact_id: str):
     try:
-        result = question_gen.suggest_clarification(artifact_id)
-        return result
+        return question_gen.suggest_clarification(artifact_id)
     except Exception as e:
-        logger.error(f"QuestionGenerator Mode B error: {e}")
         raise HTTPException(500, str(e))
-
 
 @app.get("/question/candidates")
 def clarification_candidates():
     return {"candidates": question_gen.list_clarification_candidates()}
+
+
+# ══════════════════════════════════════
+# API TRACKER ЭНДПОИНТЫ
+# ══════════════════════════════════════
+
+@app.get("/tracker/stats")
+def tracker_stats():
+    """Полная статистика: провайдеры + аккаунты + итого."""
+    return tracker.get_stats()
+
+@app.get("/tracker/providers")
+def tracker_providers_get():
+    """Список провайдеров + каталог моделей для дропдауна."""
+    return {"providers": tracker.get_providers(), "known_models": tracker.get_known_models()}
+
+@app.post("/tracker/providers")
+def tracker_providers_update(req: ProvidersUpdateRequest):
+    """Полное обновление списка провайдеров из UI."""
+    ok = tracker.update_providers(req.providers)
+    if not ok:
+        raise HTTPException(400, "Ошибка сохранения конфига")
+    return {"ok": True, "count": len(req.providers)}
+
+@app.post("/tracker/providers/add")
+def tracker_provider_add(req: ProviderAddRequest):
+    """Добавить нового провайдера."""
+    ok = tracker.add_provider(req.dict())
+    if not ok:
+        raise HTTPException(400, "Ошибка добавления провайдера")
+    return {"ok": True}
+
+@app.delete("/tracker/providers/{provider_id}")
+def tracker_provider_delete(provider_id: str):
+    """Удалить провайдера по ID."""
+    ok = tracker.delete_provider(provider_id)
+    if not ok:
+        raise HTTPException(404, f"Провайдер {provider_id} не найден")
+    return {"ok": True}
+
+@app.post("/tracker/reset")
+def tracker_reset_stats(req: ResetRequest):
+    """Сброс статистики: scope=today или scope=all."""
+    if req.scope == "all":
+        tracker.reset_all()
+    else:
+        tracker.reset_today()
+    return {"ok": True, "scope": req.scope}
 
 
 if __name__ == "__main__":
