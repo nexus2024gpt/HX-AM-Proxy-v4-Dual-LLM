@@ -2,13 +2,11 @@
 """
 Защитный слой пайплайна.
 
-Принцип: никакие данные не попадают в граф, space или artifacts
-до успешного прохождения всех этапов валидации.
-
-Три компонента:
-  PipelineGuard   — валидация gen/ver на каждом этапе
-  RollbackManager — откат всех изменений при сбое
-  QuarantineLog   — запись отклонённых запросов для анализа
+v4.2 — адаптирован под новые поля верификатора:
+  Добавлены: operationalization, refined_hypothesis
+  Удалён:    reasoning (теперь не обязателен, не блокирует и не предупреждает)
+  Изменён:   validate_ver проверяет только критичные поля (verdict + translation)
+             остальные поля опциональны и передаются as-is в result
 """
 
 import json
@@ -16,14 +14,10 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("HXAM.guard")
 
-
-# ══════════════════════════════════════════════
-# КОДЫ ОТКАЗА
-# ══════════════════════════════════════════════
 
 class FailureCode:
     GEN_ALL_PROVIDERS_FAILED  = "GEN_ALL_PROVIDERS_FAILED"
@@ -35,14 +29,10 @@ class FailureCode:
     VER_ALL_PROVIDERS_FAILED  = "VER_ALL_PROVIDERS_FAILED"
     VER_EMPTY_JSON            = "VER_EMPTY_JSON"
     VER_NO_VERDICT            = "VER_NO_VERDICT"
-    VER_NO_TRANSLATION        = "VER_NO_TRANSLATION"   # Step 0 не выполнен
+    VER_NO_TRANSLATION        = "VER_NO_TRANSLATION"
 
     PIPELINE_EXCEPTION        = "PIPELINE_EXCEPTION"
 
-
-# ══════════════════════════════════════════════
-# РЕЗУЛЬТАТ ВАЛИДАЦИИ
-# ══════════════════════════════════════════════
 
 class ValidationResult:
     def __init__(self, ok: bool, code: str = "", reason: str = ""):
@@ -57,24 +47,14 @@ class ValidationResult:
         return {"ok": self.ok, "code": self.code, "reason": self.reason}
 
 
-# ══════════════════════════════════════════════
-# GUARD
-# ══════════════════════════════════════════════
-
 class PipelineGuard:
-    """
-    Валидирует каждый этап пайплайна.
-    При провале возвращает ValidationResult с кодом и причиной.
-    """
 
     # ── Генератор ────────────────────────────
 
     def validate_gen_raw(self, raw: str, model: str) -> ValidationResult:
-        """Проверяет сырой ответ генератора до парсинга JSON."""
         if not raw or not raw.strip():
             return ValidationResult(False, FailureCode.GEN_EMPTY_JSON,
                                     "Generator returned empty response")
-
         if raw.strip().startswith("[Generator error]"):
             return ValidationResult(False, FailureCode.GEN_ALL_PROVIDERS_FAILED,
                                     f"All generator providers failed (last: {model}). "
@@ -82,7 +62,6 @@ class PipelineGuard:
         return ValidationResult(True)
 
     def validate_gen(self, gen: dict, model: str) -> ValidationResult:
-        """Проверяет распарсенный объект генератора."""
         if not gen:
             return ValidationResult(False, FailureCode.GEN_EMPTY_JSON,
                                     f"Generator JSON parse failed (model: {model})")
@@ -94,7 +73,6 @@ class PipelineGuard:
 
         domain = gen.get("domain", "").strip().lower()
         if not domain or domain == "general":
-            # Предупреждение, не блокировка — сервер подберёт домен из запроса
             logger.warning(f"Generator did not set domain (model: {model})")
 
         b_sync = gen.get("b_sync")
@@ -115,11 +93,9 @@ class PipelineGuard:
     # ── Верификатор ──────────────────────────
 
     def validate_ver_raw(self, raw: str, model: str) -> ValidationResult:
-        """Проверяет сырой ответ верификатора до парсинга JSON."""
         if not raw or not raw.strip():
             return ValidationResult(False, FailureCode.VER_EMPTY_JSON,
                                     "Verifier returned empty response")
-
         if raw.strip().startswith("[Verifier error]"):
             return ValidationResult(False, FailureCode.VER_ALL_PROVIDERS_FAILED,
                                     f"All verifier providers failed (last: {model}). "
@@ -127,28 +103,40 @@ class PipelineGuard:
         return ValidationResult(True)
 
     def validate_ver(self, ver: dict, model: str, raw: Optional[str] = None) -> ValidationResult:
-        """Проверяет распарсенный объект верификатора."""
+        """
+        Проверяет распарсенный объект верификатора.
+
+        Критичные поля (блокируют пайплайн):
+          verdict    — VALID | WEAK | FALSE
+          translation — объект со Step 0 (предупреждение, не блокировка)
+
+        Опциональные поля (v4.2, передаются as-is):
+          operationalization — модель + параметры + измерение
+          refined_hypothesis — уточнённая версия гипотезы
+          issues             — список проблем
+          confidence         — числовая оценка
+        """
         if not ver and raw:
+            # Попытка перепарсить raw если основной парсинг не удался
             try:
                 from hxam_v_4_server import extract_json
-            except ImportError as e:
-                logger.warning(f"validate_ver: failed to import extract_json fallback: {e}")
-            else:
                 ver = extract_json(raw)
                 if ver:
                     logger.info("validate_ver: successfully reparsed verifier raw response")
+            except ImportError:
+                pass
 
         if not ver:
             return ValidationResult(False, FailureCode.VER_EMPTY_JSON,
                                     f"Verifier JSON parse failed (model: {model})")
 
+        # Критичная проверка: verdict
         verdict = ver.get("verdict", "").strip().upper()
         if verdict not in ("VALID", "WEAK", "FALSE"):
             return ValidationResult(False, FailureCode.VER_NO_VERDICT,
                                     f"Verifier returned invalid verdict: '{verdict}'")
 
-        # Step 0 — translation обязателен. Предупреждение, не блокировка:
-        # модель могла выдать строку вместо объекта
+        # Step 0 — translation: предупреждение, не блокировка
         translation = ver.get("translation")
         if not translation:
             logger.warning(
@@ -161,30 +149,27 @@ class PipelineGuard:
                     f"Verifier Step 0 incomplete: survival='{survival}' (model: {model})"
                 )
 
+        # Логируем наличие новых полей (информационно)
+        if ver.get("operationalization"):
+            logger.debug(
+                f"Verifier operationalization present: "
+                f"model={ver['operationalization'].get('model', '?')} (provider: {model})"
+            )
+        if ver.get("refined_hypothesis"):
+            logger.debug(
+                f"Verifier refined_hypothesis present (provider: {model})"
+            )
+
         return ValidationResult(True)
 
 
-# ══════════════════════════════════════════════
-# ROLLBACK MANAGER
-# ══════════════════════════════════════════════
-
 class RollbackManager:
-    """
-    Откатывает все изменения при сбое пайплайна.
-
-    Регистрирует:
-      - добавления в SemanticSpace (по индексу)
-      - добавления нод и рёбер в InvariantGraph
-      - созданные файлы (artifact, portal)
-    """
-
     def __init__(self):
-        self._space_snapshot: Optional[int] = None     # len(space.vectors) до операции
-        self._graph_node: Optional[str] = None          # id добавленной ноды
-        self._files: List[Path] = []                    # созданные файлы для удаления
+        self._space_snapshot: Optional[int] = None
+        self._graph_node: Optional[str] = None
+        self._files: List[Path] = []
 
     def snapshot_space(self, space_len: int):
-        """Запоминаем размер space до добавления."""
         self._space_snapshot = space_len
 
     def register_graph_node(self, node_id: str):
@@ -194,12 +179,8 @@ class RollbackManager:
         self._files.append(path)
 
     def rollback(self, space, graph) -> List[str]:
-        """
-        Выполняет откат. Возвращает список выполненных действий.
-        """
         actions = []
 
-        # 1. Откат SemanticSpace
         if self._space_snapshot is not None:
             current_len = len(space.vectors)
             removed = current_len - self._space_snapshot
@@ -209,15 +190,12 @@ class RollbackManager:
                 actions.append(f"space: removed {removed} vector(s)")
             self._space_snapshot = None
 
-        # 2. Откат InvariantGraph
         if self._graph_node and self._graph_node in graph.G:
-            # Удаляем ноду и все её рёбра
             graph.G.remove_node(self._graph_node)
             graph._save()
             actions.append(f"graph: removed node {self._graph_node}")
             self._graph_node = None
 
-        # 3. Удаление файлов
         for path in self._files:
             if path.exists():
                 path.unlink()
@@ -227,22 +205,12 @@ class RollbackManager:
         return actions
 
     def clear(self):
-        """Очищает регистры после успешного завершения (без отката)."""
         self._space_snapshot = None
         self._graph_node = None
         self._files.clear()
 
 
-# ══════════════════════════════════════════════
-# QUARANTINE LOG
-# ══════════════════════════════════════════════
-
 class QuarantineLog:
-    """
-    Записывает отклонённые запросы в chat_history/quarantine.jsonl.
-    Не попадают в history.jsonl и не отображаются в UI.
-    """
-
     def __init__(self, path: str = "chat_history/quarantine.jsonl"):
         self.path = Path(path)
         self.path.parent.mkdir(exist_ok=True)
@@ -263,7 +231,7 @@ class QuarantineLog:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "job_id": job_id,
             "query": query[:300],
-            "stage": stage,                # "generation" | "verification" | "engine"
+            "stage": stage,
             "failure_code": failure_code,
             "reason": reason,
             "gen_model": gen_model,
@@ -272,7 +240,6 @@ class QuarantineLog:
         }
         with open(self.path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
         logger.warning(
             f"[QUARANTINE] job={job_id} stage={stage} code={failure_code} | {reason[:80]}"
         )

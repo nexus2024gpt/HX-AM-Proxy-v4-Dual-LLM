@@ -529,6 +529,37 @@ Reasoning: ${escHtml(a.reasoning_summary || '—')}</pre>
   </div>`;
 }
 
+
+// ══════════════════════════════════════════════════════
+// VERIFIER PANEL — renders new schema fields
+// ══════════════════════════════════════════════════════
+function verPanel(ver) {
+  if (!ver) return '—';
+  const vcolor = ver.verdict==='VALID'?'#4ade80':ver.verdict==='WEAK'?'#fbbf24':'#ef4444';
+  const scolor = ver.translation?.survival==='STRUCTURAL'?'#4ade80':'#f59e0b';
+  let out = '';
+  out += `verdict: <span style="color:${vcolor};font-weight:bold">${ver.verdict||'—'}</span>  conf: ${ver.confidence??'—'}\n`;
+  if (ver.translation) {
+    out += `\nStep 0 → <b>${ver.translation.target_domain||'?'}</b>\n`;
+    out += `survival: <span style="color:${scolor}">${ver.translation.survival||'?'}</span>\n`;
+    if (ver.translation.translated_mechanism)
+      out += `${escHtml(ver.translation.translated_mechanism.substring(0,180))}...\n`;
+  }
+  if (ver.issues?.length) {
+    out += `\nissues:\n`;
+    ver.issues.forEach(i => { out += `  · ${escHtml(i.substring(0,120))}\n`; });
+  }
+  if (ver.operationalization) {
+    const op = ver.operationalization;
+    out += `\nmodel: <span style="color:#60a5fa">${op.model||'?'}</span>\n`;
+    if (op.measurement) out += `measure: ${escHtml(op.measurement.substring(0,120))}\n`;
+    if (op.examples?.length) out += `example: ${escHtml(op.examples[0].substring(0,100))}\n`;
+  }
+  if (ver.refined_hypothesis)
+    out += `\n<span style="color:#c084fc">refined: ${escHtml(ver.refined_hypothesis.substring(0,200))}</span>\n`;
+  return out;
+}
+
 // ══════════════════════════════════════════════════════
 // QUERY
 // ══════════════════════════════════════════════════════
@@ -568,7 +599,7 @@ async function sendQuery() {
       </div>
       <div class="panel">
         <h3>🔍 Верификатор ${modelBadge(data.ver_model)}</h3>
-        <pre>${JSON.stringify(data.verification, null, 2)}</pre>
+        <pre>${verPanel(data.verification)}</pre>
       </div>
       <div class="panel">
         <h3>✅ Структура</h3>

@@ -1,4 +1,4 @@
-# HX-AM v4 Full Server — с защитным слоем пайплайна + API Usage Tracker
+# HX-AM v4 Full Server — v4.2 (new prompt schema: operationalization + refined_hypothesis)
 import os, json, time, hashlib, logging, re
 from pathlib import Path
 from datetime import datetime, timezone
@@ -74,61 +74,41 @@ VER_PROMPT = load_prompt("verifier_prompt.txt")
 def extract_json(text: str) -> Dict[str, Any]:
     """
     Извлекает JSON из ответа LLM.
-    Устойчив к:
-    - markdown-блокам ```json ... ```
-    - пояснительному тексту до и после JSON
-    - множественным фигурным скобкам (берёт первый полный объект)
-    - битым кавычкам (пытается восстановить)
+    Устойчив к markdown-блокам, пояснительному тексту, множественным скобкам.
     """
     if not text:
         return {}
-
-    # 1. Удаляем markdown-обёртки
     text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"```\s*", "", text)
-
-    # 2. Ищем первую '{' и последнюю '}'
     start = text.find('{')
     end = text.rfind('}')
     if start == -1 or end == -1 or end <= start:
-        logger.warning(f"extract_json: no braces found in: {text[:200]}")
         return {}
-
     json_candidate = text[start:end+1]
-
-    # 3. Пробуем распарсить напрямую
     try:
         return json.loads(json_candidate)
     except json.JSONDecodeError:
         pass
-
-    # 4. Пробуем найти вложенный JSON (например, если внутри есть другие скобки)
-    # Ищем первый полный объект (жадный поиск)
+    # Попытка найти первый полный объект
     try:
         stack = []
         for i, ch in enumerate(json_candidate):
             if ch == '{':
                 stack.append(i)
-            elif ch == '}':
-                if stack:
-                    start_idx = stack.pop()
-                    if not stack:  # нашли полный объект
-                        candidate = json_candidate[start_idx:i+1]
-                        try:
-                            return json.loads(candidate)
-                        except Exception:
-                            continue
+            elif ch == '}' and stack:
+                start_idx = stack.pop()
+                if not stack:
+                    try:
+                        return json.loads(json_candidate[start_idx:i+1])
+                    except Exception:
+                        continue
     except Exception:
         pass
-
-    # 5. Последняя попытка: заменить ' на "" (если ответ использует одинарные кавычки)
     try:
-        fixed = json_candidate.replace("'", '"')
-        return json.loads(fixed)
+        return json.loads(json_candidate.replace("'", '"'))
     except Exception:
         pass
-
-    logger.warning(f"extract_json: failed to parse JSON from: {json_candidate[:200]}")
+    logger.warning(f"extract_json: failed to parse from: {json_candidate[:200]}")
     return {}
 
 
@@ -168,6 +148,11 @@ def _rejected_response(job_id: str, code: str, reason: str, stage: str) -> dict:
 
 
 def filter_rag_diversity(similar: List[dict], max_per_domain: int = 1, sim_cap: float = 0.88) -> List[dict]:
+    """
+    RAG anti-amplification filter (v4.2):
+    - Отсекает инварианты с sim >= sim_cap (генератор скопирует терминологию)
+    - Ограничивает 1 инвариант на домен (не усиливать доминирующий кластер)
+    """
     seen_domains: dict = {}
     result = []
     for s in similar:
@@ -192,22 +177,18 @@ def process_query(req: QueryRequest):
     ver_model = "unknown"
 
     try:
+        # ══ ЭТАП 1 — ГЕНЕРАЦИЯ ══
         rag_raw = semantic_space.nearest(req.text, top_k=5, threshold=0.55)
         rag_similar = filter_rag_diversity(rag_raw, max_per_domain=1, sim_cap=0.88)
 
         rag_block = ""
         if rag_similar:
-            rag_block = "\n\nРелевантные инварианты из базы знаний системы:\n"
+            rag_block = "\n\nRAG context (structural inspiration only — do NOT copy phrases):\n"
             for s in rag_similar:
-                rag_block += f"- [{s['domain']}] {s['invariant']} (similarity: {s['similarity']})\n"
+                rag_block += f"- [{s['domain']}] {s['invariant']} (sim:{s['similarity']})\n"
 
-        gen_input = f"""{GEN_PROMPT}{rag_block}
+        gen_input = f"{GEN_PROMPT}{rag_block}\n\nX: {req.x_coordinate}\n\nUser input:\n{req.text}"
 
-X: {req.x_coordinate}
-
-User input:
-{req.text}
-"""
         logger.info(f"Job {job_id}: generating... rag_raw={len(rag_raw)} rag_filtered={len(rag_similar)}")
         gen_raw, gen_model = client.generate(gen_input)
 
@@ -225,11 +206,9 @@ User input:
         domain = resolve_domain(gen, req.domain)
         logger.info(f"Job {job_id}: gen OK -> b_sync={gen.get('b_sync')} domain={domain} model={gen_model}")
 
-        ver_input = f"""{VER_PROMPT}
+        # ══ ЭТАП 2 — ВЕРИФИКАЦИЯ ══
+        ver_input = f"{VER_PROMPT}\n\nHypothesis:\n{json.dumps(gen, ensure_ascii=False)}"
 
-Hypothesis:
-{json.dumps(gen, ensure_ascii=False)}
-"""
         logger.info(f"Job {job_id}: verifying...")
         ver_raw, ver_model = client.verify(ver_input, context=req.text)
 
@@ -248,10 +227,15 @@ Hypothesis:
         confidence = ver.get("confidence", 0)
         logger.info(f"Job {job_id}: ver OK -> verdict={verdict} conf={confidence} model={ver_model}")
 
+        # Если верификатор предложил уточнённую гипотезу — логируем
+        if ver.get("refined_hypothesis"):
+            logger.info(f"Job {job_id}: refined_hypothesis present → available in result")
+
+        # ══ ЭТАП 3 — РЕШЕНИЕ О СОХРАНЕНИИ ══
         save = False
         if verdict == "VALID" and confidence > 0.6:
             save = True
-        elif verdict == "WEAK" and gen.get("b_sync", 0) > 0.7:
+        elif verdict == "WEAK" and float(gen.get("b_sync", 0)) > 0.7:
             save = True
 
         result = {
@@ -261,6 +245,7 @@ Hypothesis:
             "gen_model": gen_model, "ver_model": ver_model,
         }
 
+        # ══ ЭТАП 4 — INVARIANT ENGINE ══
         rollback.snapshot_space(len(semantic_space.vectors))
         rollback.register_graph_node(job_id)
 
@@ -276,6 +261,7 @@ Hypothesis:
             f"phase={phase_signal.get('signal')} unique_domains={phase_signal.get('unique_domains')}"
         )
 
+        # ══ ЭТАП 5 — СОХРАНЕНИЕ ══
         if structural.get("is_bridge"):
             portal_path = Path("artifacts") / f"{job_id}.hyx-portal.json"
             portal_data = {
@@ -322,7 +308,7 @@ Hypothesis:
 
 
 # ══════════════════════════════════════
-# ОСНОВНЫЕ ЭНДПОИНТЫ
+# ЭНДПОИНТЫ
 # ══════════════════════════════════════
 
 @app.post("/query")
@@ -431,23 +417,18 @@ def clarification_candidates():
     return {"candidates": question_gen.list_clarification_candidates()}
 
 
-# ══════════════════════════════════════
-# API TRACKER ЭНДПОИНТЫ
-# ══════════════════════════════════════
+# ══ TRACKER ══
 
 @app.get("/tracker/stats")
 def tracker_stats():
-    """Полная статистика: провайдеры + аккаунты + итого."""
     return tracker.get_stats()
 
 @app.get("/tracker/providers")
 def tracker_providers_get():
-    """Список провайдеров + каталог моделей для дропдауна."""
     return {"providers": tracker.get_providers(), "known_models": tracker.get_known_models()}
 
 @app.post("/tracker/providers")
 def tracker_providers_update(req: ProvidersUpdateRequest):
-    """Полное обновление списка провайдеров из UI."""
     ok = tracker.update_providers(req.providers)
     if not ok:
         raise HTTPException(400, "Ошибка сохранения конфига")
@@ -455,7 +436,6 @@ def tracker_providers_update(req: ProvidersUpdateRequest):
 
 @app.post("/tracker/providers/add")
 def tracker_provider_add(req: ProviderAddRequest):
-    """Добавить нового провайдера."""
     ok = tracker.add_provider(req.dict())
     if not ok:
         raise HTTPException(400, "Ошибка добавления провайдера")
@@ -463,7 +443,6 @@ def tracker_provider_add(req: ProviderAddRequest):
 
 @app.delete("/tracker/providers/{provider_id}")
 def tracker_provider_delete(provider_id: str):
-    """Удалить провайдера по ID."""
     ok = tracker.delete_provider(provider_id)
     if not ok:
         raise HTTPException(404, f"Провайдер {provider_id} не найден")
@@ -471,7 +450,6 @@ def tracker_provider_delete(provider_id: str):
 
 @app.post("/tracker/reset")
 def tracker_reset_stats(req: ResetRequest):
-    """Сброс статистики: scope=today или scope=all."""
     if req.scope == "all":
         tracker.reset_all()
     else:
