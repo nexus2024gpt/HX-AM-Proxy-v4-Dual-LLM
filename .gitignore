@@ -7,3 +7,4 @@ artifacts/invariant_graph.json
 artifacts/*.json
 chat_history/
 search_keys.txt
+api_usage_tracker.py
