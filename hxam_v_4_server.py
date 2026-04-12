@@ -1,5 +1,5 @@
-# HX-AM v4 Full Server — v4.3 (response_normalizer integration)
-import os, json, time, hashlib, logging, re
+# HX-AM v4 Full Server — v4.4 (UI refactor: trash, REF auto-update, artifacts/list)
+import os, json, time, hashlib, logging, re, shutil
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
@@ -24,6 +24,9 @@ logger = logging.getLogger("HXAM.v4")
 app = FastAPI(title="HX-AM v4")
 
 Path("artifacts").mkdir(exist_ok=True)
+Path("trash").mkdir(exist_ok=True)          # ← корзина удалённых артефактов
+Path("chat_history").mkdir(exist_ok=True)
+
 logger.info("Загрузка семантического индекса...")
 semantic_space = SemanticSpace()
 logger.info("Загрузка графа инвариантов...")
@@ -96,6 +99,7 @@ def save_artifact(job_id: str, data: Dict[str, Any]) -> Path:
         "id": job_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "data": data,
+        "history": [],   # ← история ревизий
     }
     file = path / f"{job_id}.json"
     file.write_text(json.dumps(obj, indent=2, ensure_ascii=False))
@@ -130,11 +134,6 @@ def filter_rag_diversity(
     max_per_domain: int = 1,
     sim_cap: float = 0.88,
 ) -> List[dict]:
-    """
-    RAG anti-amplification filter:
-    - Отсекает инварианты с sim >= sim_cap (генератор скопирует терминологию)
-    - Ограничивает 1 инвариант на домен
-    """
     seen_domains: dict = {}
     result = []
     dropped = 0
@@ -152,6 +151,115 @@ def filter_rag_diversity(
     if dropped:
         logger.info(f"RAG filter: {len(similar)} → {len(result)} (dropped {dropped})")
     return result
+
+
+def extract_ref_id(text: str) -> Optional[str]:
+    """Извлекает [REF:artifact_id] из текста запроса."""
+    match = re.search(r'\[REF:([a-f0-9]{8,20})\]', text)
+    return match.group(1) if match else None
+
+
+def _reload_semantic_index():
+    """Перезаписывает semantic_index.jsonl из текущего состояния space.meta."""
+    try:
+        with open(semantic_space.index_path, "w", encoding="utf-8") as f:
+            for m in semantic_space.meta:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logger.error(f"Failed to rewrite semantic_index: {e}")
+
+
+def update_referenced_artifact(ref_id: str, result: dict, query: str):
+    """
+    Автоматически обновляет артефакт ref_id результатами нового пайплайна.
+    Сохраняет историю предыдущей версии внутри артефакта.
+    Обновляет семантический индекс и граф.
+    """
+    artifact_path = Path("artifacts") / f"{ref_id}.json"
+    if not artifact_path.exists():
+        logger.warning(f"REF artifact {ref_id} not found — skipping update")
+        return
+
+    try:
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        data = artifact.get("data", {})
+
+        # Сохраняем текущую версию в историю
+        history_entry = {
+            "revision": len(artifact.get("history", [])) + 1,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ref_query": query,
+            "gen": data.get("gen", {}),
+            "ver": data.get("ver", {}),
+            "structural": data.get("structural", {}),
+            "archivist": artifact.get("archivist"),
+        }
+        if "history" not in artifact:
+            artifact["history"] = []
+        artifact["history"].append(history_entry)
+
+        new_gen = result.get("generation", {})
+        new_ver = result.get("verification", {})
+        new_structural = result.get("structural", {})
+        new_domain = result.get("domain", data.get("domain", "general"))
+
+        # Обновляем данные артефакта
+        artifact["data"]["gen"] = new_gen
+        artifact["data"]["ver"] = new_ver
+        artifact["data"]["structural"] = new_structural
+        artifact["data"]["domain"] = new_domain
+        artifact["data"]["normalization"] = result.get("repairs", {})
+        artifact["last_updated"] = datetime.now(timezone.utc).isoformat()
+        artifact["ref_query"] = query
+
+        # Обновляем семантический индекс
+        new_invariant = new_gen.get("hypothesis", "")
+        if new_invariant:
+            idx = semantic_space._id_to_idx.get(ref_id)
+            if idx is not None and idx < len(semantic_space.vectors):
+                new_vec = semantic_space.encode(new_invariant)
+                semantic_space.vectors[idx] = new_vec
+                semantic_space.meta[idx] = {
+                    "id": ref_id,
+                    "invariant": new_invariant,
+                    "domain": new_domain,
+                    "b_sync": float(new_gen.get("b_sync", 0)),
+                }
+                _reload_semantic_index()
+                logger.info(f"Semantic space updated for REF {ref_id}")
+
+        # Обновляем узел графа
+        if ref_id in invariant_graph.G:
+            translation = new_ver.get("translation", {})
+            survival = (translation.get("survival", "UNKNOWN")
+                        if isinstance(translation, dict) else "UNKNOWN")
+            invariant_graph.G.nodes[ref_id].update({
+                "domain": new_domain,
+                "b_sync": float(new_gen.get("b_sync", 0)),
+                "stability": new_structural.get("stability", "unknown"),
+                "specificity": new_structural.get("specificity", 0.5),
+                "survival": survival,
+            })
+            invariant_graph._save()
+            logger.info(f"Graph node updated for REF {ref_id}")
+
+        # Сохраняем артефакт
+        artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=False))
+
+        # Перезапускаем архивиста
+        try:
+            archivist_result = archivist.process(ref_id)
+            logger.info(f"Archivist re-ran for REF {ref_id}: {archivist_result.get('novelty')}")
+        except Exception as e:
+            logger.warning(f"Archivist re-run failed for REF {ref_id}: {e}")
+
+        logger.info(
+            f"REF artifact {ref_id} updated. "
+            f"History entries: {len(artifact['history'])}"
+        )
+
+    except Exception as e:
+        logger.error(f"update_referenced_artifact failed for {ref_id}: {e}", exc_info=True)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -192,43 +300,26 @@ def process_query(req: QueryRequest):
         )
         gen_raw, gen_model = client.generate(gen_input)
 
-        # RAW check (provider errors, empty response)
         vr = guard.validate_gen_raw(gen_raw, gen_model)
         if not vr:
-            quarantine.record(
-                job_id, req.text, vr.code, vr.reason, "generation",
-                gen_model=gen_model,
-            )
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation", gen_model=gen_model)
             return _rejected_response(job_id, vr.code, vr.reason, "generation")
 
-        # ── Нормализация ответа генератора ────────────────────
         gen, gen_repairs, gen_ok = normalize_gen(gen_raw)
         if not gen_ok:
             reason = f"Generator output unrecoverable: {'; '.join(gen_repairs[-3:])}"
-            quarantine.record(
-                job_id, req.text, FailureCode.GEN_UNRECOVERABLE, reason,
-                "generation", gen_model=gen_model, gen_repairs=gen_repairs,
-            )
-            return _rejected_response(
-                job_id, FailureCode.GEN_UNRECOVERABLE, reason, "generation"
-            )
-        if gen_repairs:
-            logger.info(f"Job {job_id}: gen normalized ({len(gen_repairs)} repairs)")
+            quarantine.record(job_id, req.text, FailureCode.GEN_UNRECOVERABLE, reason,
+                              "generation", gen_model=gen_model, gen_repairs=gen_repairs)
+            return _rejected_response(job_id, FailureCode.GEN_UNRECOVERABLE, reason, "generation")
 
-        # Финальная структурная проверка нормализованного объекта
         vr = guard.validate_gen(gen, gen_model)
         if not vr:
-            quarantine.record(
-                job_id, req.text, vr.code, vr.reason, "generation",
-                gen_model=gen_model, gen_repairs=gen_repairs,
-            )
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "generation",
+                              gen_model=gen_model, gen_repairs=gen_repairs)
             return _rejected_response(job_id, vr.code, vr.reason, "generation")
 
         domain = resolve_domain(gen, req.domain)
-        logger.info(
-            f"Job {job_id}: gen OK → "
-            f"b_sync={gen.get('b_sync')} domain={domain} model={gen_model}"
-        )
+        logger.info(f"Job {job_id}: gen OK → b_sync={gen.get('b_sync')} domain={domain}")
 
         # ══ ЭТАП 3 — ВЕРИФИКАЦИЯ ═════════════════════════════════
         ver_input = (
@@ -236,51 +327,32 @@ def process_query(req: QueryRequest):
             f"{json.dumps(gen, ensure_ascii=False)}"
         )
 
-        logger.info(f"Job {job_id}: verifying...")
         ver_raw, ver_model = client.verify(ver_input, context=req.text)
 
-        # RAW check
         vr = guard.validate_ver_raw(ver_raw, ver_model)
         if not vr:
-            quarantine.record(
-                job_id, req.text, vr.code, vr.reason, "verification",
-                gen_model=gen_model, ver_model=ver_model, gen_repairs=gen_repairs,
-            )
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "verification",
+                              gen_model=gen_model, ver_model=ver_model, gen_repairs=gen_repairs)
             return _rejected_response(job_id, vr.code, vr.reason, "verification")
 
-        # ── Нормализация ответа верификатора ──────────────────
         ver, ver_repairs, ver_ok = normalize_ver(ver_raw)
         if not ver_ok:
             reason = f"Verifier output unrecoverable: {'; '.join(ver_repairs[-3:])}"
-            quarantine.record(
-                job_id, req.text, FailureCode.VER_UNRECOVERABLE, reason,
-                "verification", gen_model=gen_model, ver_model=ver_model,
-                gen_repairs=gen_repairs, ver_repairs=ver_repairs,
-            )
-            return _rejected_response(
-                job_id, FailureCode.VER_UNRECOVERABLE, reason, "verification"
-            )
-        if ver_repairs:
-            logger.info(f"Job {job_id}: ver normalized ({len(ver_repairs)} repairs)")
+            quarantine.record(job_id, req.text, FailureCode.VER_UNRECOVERABLE, reason,
+                              "verification", gen_model=gen_model, ver_model=ver_model,
+                              gen_repairs=gen_repairs, ver_repairs=ver_repairs)
+            return _rejected_response(job_id, FailureCode.VER_UNRECOVERABLE, reason, "verification")
 
-        # Финальная структурная проверка
         vr = guard.validate_ver(ver, ver_model)
         if not vr:
-            quarantine.record(
-                job_id, req.text, vr.code, vr.reason, "verification",
-                gen_model=gen_model, ver_model=ver_model,
-                gen_repairs=gen_repairs, ver_repairs=ver_repairs,
-            )
+            quarantine.record(job_id, req.text, vr.code, vr.reason, "verification",
+                              gen_model=gen_model, ver_model=ver_model,
+                              gen_repairs=gen_repairs, ver_repairs=ver_repairs)
             return _rejected_response(job_id, vr.code, vr.reason, "verification")
 
         verdict = ver.get("verdict", "WEAK")
         confidence = ver.get("confidence", 0.5)
-        logger.info(
-            f"Job {job_id}: ver OK → verdict={verdict} conf={confidence} model={ver_model}"
-        )
-
-        if ver.get("refined_hypothesis"):
-            logger.info(f"Job {job_id}: refined_hypothesis available")
+        logger.info(f"Job {job_id}: ver OK → verdict={verdict} conf={confidence}")
 
         # ══ ЭТАП 4 — РЕШЕНИЕ О СОХРАНЕНИИ ═══════════════════════
         save = False
@@ -307,25 +379,18 @@ def process_query(req: QueryRequest):
         rollback.snapshot_space(semantic_space)
         rollback.register_graph_node(job_id)
 
-        logger.info(f"Job {job_id}: running invariant engine...")
         result = process_with_invariants(
-            result=result,
-            job_id=job_id,
-            space=semantic_space,
-            graph=invariant_graph,
-            detector=phase_detector,
+            result=result, job_id=job_id,
+            space=semantic_space, graph=invariant_graph, detector=phase_detector,
         )
         structural = result.get("structural", {})
         phase_signal = structural.get("phase_signal", {})
         logger.info(
             f"Job {job_id}: engine OK → "
-            f"type={structural.get('artifact_type')} "
-            f"phase={phase_signal.get('signal')} "
-            f"unique_domains={phase_signal.get('unique_domains')}"
+            f"type={structural.get('artifact_type')} phase={phase_signal.get('signal')}"
         )
 
         # ══ ЭТАП 6 — СОХРАНЕНИЕ ══════════════════════════════════
-        # hyx-portal
         if structural.get("is_bridge"):
             portal_path = Path("artifacts") / f"{job_id}.hyx-portal.json"
             portal_data = {
@@ -338,9 +403,7 @@ def process_query(req: QueryRequest):
                 "similar_invariants": structural.get("similar_invariants", []),
                 "phase_signal": phase_signal,
             }
-            portal_path.write_text(
-                json.dumps(portal_data, indent=2, ensure_ascii=False)
-            )
+            portal_path.write_text(json.dumps(portal_data, indent=2, ensure_ascii=False))
             rollback.register_file(portal_path)
 
         if save:
@@ -365,16 +428,25 @@ def process_query(req: QueryRequest):
 
         log_history({
             "time": time.time(),
+            "job_id": job_id,          # ← теперь всегда пишем job_id
             "query": req.text,
             "domain": domain,
             "gen": result["generation"],
             "ver": ver,
             "saved": save,
+            "artifact_id": job_id if save else None,
             "structural": structural,
             "rag_context": rag_similar,
             "rag_dropped": len(rag_raw) - len(rag_similar),
             "repairs": repairs_summary(gen_repairs, ver_repairs),
         })
+
+        # ══ ЭТАП 7 — AUTO-UPDATE REFERENCED ARTIFACT ═════════════
+        ref_id = extract_ref_id(req.text)
+        if ref_id:
+            logger.info(f"Job {job_id}: detected REF:{ref_id} — updating referenced artifact")
+            update_referenced_artifact(ref_id, result, req.text)
+            result["ref_updated"] = ref_id   # сигнал UI
 
         rollback.clear()
         return result
@@ -383,19 +455,15 @@ def process_query(req: QueryRequest):
         logger.error(f"Job {job_id}: unexpected exception - {exc}", exc_info=True)
         actions = rollback.rollback(semantic_space, invariant_graph)
         quarantine.record(
-            job_id, req.text,
-            FailureCode.PIPELINE_EXCEPTION, str(exc), "unknown",
+            job_id, req.text, FailureCode.PIPELINE_EXCEPTION, str(exc), "unknown",
             gen_model=gen_model, ver_model=ver_model,
-            rollback_actions=actions,
-            gen_repairs=gen_repairs, ver_repairs=ver_repairs,
+            rollback_actions=actions, gen_repairs=gen_repairs, ver_repairs=ver_repairs,
         )
-        return _rejected_response(
-            job_id, FailureCode.PIPELINE_EXCEPTION, str(exc), "unknown"
-        )
+        return _rejected_response(job_id, FailureCode.PIPELINE_EXCEPTION, str(exc), "unknown")
 
 
 # ════════════════════════════════════════════════════════════════
-# ENDPOINTS
+# ENDPOINTS — CORE
 # ════════════════════════════════════════════════════════════════
 
 @app.post("/query")
@@ -422,7 +490,7 @@ def history():
     file = Path("chat_history/history.jsonl")
     if not file.exists():
         return {"history": []}
-    lines = file.read_text(encoding="utf-8").splitlines()[-20:]
+    lines = file.read_text(encoding="utf-8").splitlines()[-50:]   # храним 50
     result = []
     for line in lines:
         try:
@@ -431,17 +499,121 @@ def history():
             continue
     return {"history": result}
 
+@app.get("/")
+def ui():
+    for name in ("index_v_4.html", "index.html"):
+        html_path = Path(name)
+        if html_path.exists():
+            return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
+
+
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — ARTIFACTS
+# ════════════════════════════════════════════════════════════════
+
+def _trashed_ids() -> set:
+    """Возвращает set ID артефактов находящихся в корзине."""
+    trash_path = Path("trash")
+    if not trash_path.exists():
+        return set()
+    ids = set()
+    for f in trash_path.glob("*.json"):
+        try:
+            art = json.loads(f.read_text(encoding="utf-8"))
+            ids.add(art.get("id", f.stem.split(".")[0]))
+        except Exception:
+            pass
+    return ids
+
+
 @app.get("/artifacts")
 def artifacts():
+    """Список артефактов для вкладки Артефакты (последние 20, без корзины)."""
     path = Path("artifacts")
     if not path.exists():
         return {"artifacts": []}
+    trashed = _trashed_ids()
     files = sorted(
         [f for f in path.glob("*.json") if f.stem != "invariant_graph"],
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )
-    return {"artifacts": [{"file": f.name} for f in files[:20]]}
+    result = []
+    for f in files:
+        try:
+            art = json.loads(f.read_text(encoding="utf-8"))
+            art_id = art.get("id", f.stem.split(".")[0])
+            if art_id in trashed:
+                continue
+            data = art.get("data", {})
+            gen = data.get("gen", {})
+            ver = data.get("ver", {})
+            structural = data.get("structural", {})
+            result.append({
+                "file": f.name,
+                "id": art_id,
+                "domain": data.get("domain", "general"),
+                "hypothesis_short": gen.get("hypothesis", "")[:80],
+                "verdict": ver.get("verdict", ""),
+                "confidence": ver.get("confidence", 0),
+                "b_sync": gen.get("b_sync", 0),
+                "artifact_type": structural.get("artifact_type", ""),
+                "stability": structural.get("stability", ""),
+                "novelty": art.get("archivist", {}).get("novelty", "") if art.get("archivist") else "",
+                "created_at": art.get("created_at", ""),
+                "history_count": len(art.get("history", [])),
+                "is_portal": ".hyx-portal" in f.name,
+            })
+        except Exception:
+            continue
+    return {"artifacts": result[:50]}
+
+
+@app.get("/artifacts/list")
+def artifacts_list_all():
+    """
+    Полный список всех артефактов для выпадающего списка «Уточнить артефакт».
+    Возвращает ВСЕ артефакты (не только WEAK), отсортированные по дате изменения.
+    """
+    path = Path("artifacts")
+    if not path.exists():
+        return {"artifacts": []}
+    trashed = _trashed_ids()
+    result = []
+    for f in sorted(path.glob("*.json"),
+                    key=lambda x: x.stat().st_mtime, reverse=True):
+        if f.stem in ("invariant_graph",):
+            continue
+        if ".hyx-portal" in f.name:
+            continue
+        try:
+            art = json.loads(f.read_text(encoding="utf-8"))
+            art_id = art.get("id", f.stem)
+            if art_id in trashed:
+                continue
+            data = art.get("data", {})
+            gen = data.get("gen", {})
+            ver = data.get("ver", {})
+            structural = data.get("structural", {})
+            result.append({
+                "id": art_id,
+                "domain": data.get("domain", "general"),
+                "hypothesis_short": gen.get("hypothesis", "")[:80],
+                "verdict": ver.get("verdict", ""),
+                "confidence": ver.get("confidence", 0),
+                "b_sync": gen.get("b_sync", 0),
+                "issues_count": len(ver.get("issues", [])),
+                "specificity": structural.get("specificity", 0.5),
+                "artifact_type": structural.get("artifact_type", ""),
+                "stability": structural.get("stability", ""),
+                "novelty": art.get("archivist", {}).get("novelty", "") if art.get("archivist") else "",
+                "history_count": len(art.get("history", [])),
+            })
+        except Exception:
+            continue
+    return {"artifacts": result}
+
 
 @app.get("/artifact/{name}")
 def artifact(name: str):
@@ -450,31 +622,191 @@ def artifact(name: str):
         raise HTTPException(404)
     return json.loads(file.read_text(encoding="utf-8"))
 
+
+@app.delete("/artifact/{artifact_id}")
+def soft_delete_artifact(artifact_id: str):
+    """Перемещает артефакт в корзину (soft delete)."""
+    # Ищем файл артефакта
+    art_file = Path("artifacts") / f"{artifact_id}.json"
+    portal_file = Path("artifacts") / f"{artifact_id}.hyx-portal.json"
+
+    if not art_file.exists() and not art_file.exists():
+        raise HTTPException(404, f"Artifact {artifact_id} not found")
+
+    trash_path = Path("trash")
+    trash_path.mkdir(exist_ok=True)
+
+    moved = []
+    for src in [art_file, portal_file]:
+        if src.exists():
+            dst = trash_path / src.name
+            shutil.move(str(src), str(dst))
+            moved.append(src.name)
+
+    # Удаляем из графа
+    if artifact_id in invariant_graph.G:
+        invariant_graph.G.remove_node(artifact_id)
+        invariant_graph._save()
+
+    # Удаляем из семантического индекса
+    idx = semantic_space._id_to_idx.get(artifact_id)
+    if idx is not None:
+        # Удаляем из meta и vectors
+        semantic_space.meta.pop(idx)
+        semantic_space.vectors.pop(idx)
+        del semantic_space._id_to_idx[artifact_id]
+        # Пересчитываем индексы
+        semantic_space._id_to_idx = {
+            m["id"]: i for i, m in enumerate(semantic_space.meta)
+        }
+        _reload_semantic_index()
+
+    logger.info(f"Artifact {artifact_id} moved to trash: {moved}")
+    return {"ok": True, "moved": moved}
+
+
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — TRASH (корзина)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/trash")
+def get_trash_list():
+    """Список артефактов в корзине."""
+    trash_path = Path("trash")
+    if not trash_path.exists():
+        return {"trash": []}
+    result = []
+    for f in sorted(trash_path.glob("*.json"),
+                    key=lambda x: x.stat().st_mtime, reverse=True):
+        try:
+            art = json.loads(f.read_text(encoding="utf-8"))
+            data = art.get("data", {})
+            gen = data.get("gen", {})
+            ver = data.get("ver", {})
+            result.append({
+                "file": f.name,
+                "id": art.get("id", f.stem),
+                "domain": data.get("domain", "general"),
+                "hypothesis_short": gen.get("hypothesis", "")[:80],
+                "verdict": ver.get("verdict", ""),
+                "created_at": art.get("created_at", ""),
+                "deleted_at": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+            })
+        except Exception:
+            continue
+    return {"trash": result}
+
+
+@app.post("/trash/{artifact_id}/restore")
+def restore_from_trash(artifact_id: str):
+    """Восстанавливает артефакт из корзины."""
+    trash_path = Path("trash")
+    art_file = trash_path / f"{artifact_id}.json"
+    portal_file = trash_path / f"{artifact_id}.hyx-portal.json"
+
+    if not art_file.exists():
+        raise HTTPException(404, f"Artifact {artifact_id} not found in trash")
+
+    arts_path = Path("artifacts")
+    restored = []
+    for src in [art_file, portal_file]:
+        if src.exists():
+            dst = arts_path / src.name
+            shutil.move(str(src), str(dst))
+            restored.append(src.name)
+
+    # Восстанавливаем в семантический индекс
+    art = json.loads((arts_path / f"{artifact_id}.json").read_text(encoding="utf-8"))
+    data = art.get("data", {})
+    gen = data.get("gen", {})
+    hypothesis = gen.get("hypothesis", "")
+    domain = data.get("domain", "general")
+    b_sync = float(gen.get("b_sync", 0))
+
+    if hypothesis and artifact_id not in semantic_space._id_to_idx:
+        semantic_space.add(artifact_id, hypothesis, domain, b_sync)
+
+    # Восстанавливаем в граф
+    if artifact_id not in invariant_graph.G:
+        structural = data.get("structural", {})
+        translation = data.get("ver", {}).get("translation", {})
+        survival = (translation.get("survival", "UNKNOWN")
+                    if isinstance(translation, dict) else "UNKNOWN")
+        invariant_graph.add_node(
+            artifact_id,
+            domain=domain,
+            b_sync=b_sync,
+            stability=structural.get("stability", "unknown"),
+            specificity=structural.get("specificity", 0.5),
+            survival=survival,
+        )
+        invariant_graph._save()
+
+    logger.info(f"Artifact {artifact_id} restored from trash")
+    return {"ok": True, "restored": restored}
+
+
+@app.delete("/trash/{artifact_id}/permanent")
+def permanent_delete(artifact_id: str):
+    """Безвозвратно удаляет артефакт из корзины."""
+    trash_path = Path("trash")
+    deleted = []
+    for f in [trash_path / f"{artifact_id}.json",
+              trash_path / f"{artifact_id}.hyx-portal.json"]:
+        if f.exists():
+            f.unlink()
+            deleted.append(f.name)
+    if not deleted:
+        raise HTTPException(404, f"Artifact {artifact_id} not found in trash")
+    logger.info(f"Artifact {artifact_id} permanently deleted")
+    return {"ok": True, "deleted": deleted}
+
+
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — GRAPH
+# ════════════════════════════════════════════════════════════════
+
 @app.get("/graph/data")
 def graph_data():
     G = invariant_graph.G
+    trashed = _trashed_ids()
     nodes = []
     for node_id, attrs in G.nodes(data=True):
+        # Пропускаем узлы без атрибутов (битые) и удалённые
+        if node_id in trashed:
+            continue
+        domain = attrs.get("domain", "")
+        if not domain:            # узел без домена — не показываем
+            continue
         nodes.append({
             "id": node_id,
-            "domain": attrs.get("domain", "general"),
+            "domain": domain,
             "b_sync": attrs.get("b_sync", 0.0),
             "stability": attrs.get("stability", "unknown"),
+            "specificity": attrs.get("specificity", 0.5),
+            "survival": attrs.get("survival", "UNKNOWN"),
         })
+
+    valid_ids = {n["id"] for n in nodes}
     links = []
     for u, v, attrs in G.edges(data=True):
+        if u not in valid_ids or v not in valid_ids:
+            continue
         links.append({
             "source": u, "target": v,
             "weight": attrs.get("weight", 0.0),
             "similarity": attrs.get("similarity", 0.0),
             "domain_distance": attrs.get("domain_distance", 0.0),
         })
+
     clusters = [list(c) for c in invariant_graph.get_invariant_clusters()]
     bridge_nodes = {n for e in invariant_graph.get_bridges() for n in e}
     cluster_map = {nid: i for i, cluster in enumerate(clusters) for nid in cluster}
+
     for node in nodes:
         node["cluster"] = cluster_map.get(node["id"], -1)
         node["is_bridge"] = node["id"] in bridge_nodes
+
     return {
         "nodes": nodes,
         "links": links,
@@ -485,6 +817,7 @@ def graph_data():
             "bridge_count": len(bridge_nodes),
         },
     }
+
 
 @app.get("/graph")
 def graph():
@@ -502,13 +835,10 @@ def graph():
 def phase():
     return phase_detector.detect_phase_transition(semantic_space)
 
-@app.get("/")
-def ui():
-    for name in ("index_v_4.html", "index.html"):
-        html_path = Path(name)
-        if html_path.exists():
-            return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
+
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — QUESTION GENERATOR
+# ════════════════════════════════════════════════════════════════
 
 @app.get("/question/suggest")
 def suggest_question():
@@ -529,7 +859,9 @@ def clarification_candidates():
     return {"candidates": question_gen.list_clarification_candidates()}
 
 
-# ── Tracker endpoints ─────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
+# ENDPOINTS — TRACKER
+# ════════════════════════════════════════════════════════════════
 
 @app.get("/tracker/stats")
 def tracker_stats():

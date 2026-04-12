@@ -25,12 +25,11 @@ h1{color:#6366f1;margin-bottom:.5rem;font-size:2rem}
 textarea{width:100%;height:120px;background:#1e293b;border:2px solid #475569;color:#fff;padding:1rem;font-family:inherit;font-size:.95rem;resize:vertical;border-radius:8px;transition:border-color .2s}
 textarea:focus{outline:none;border-color:#6366f1}
 
-/* RAG context block */
-#rag-block{display:none;background:rgba(99,102,241,.07);border:1px solid #6366f133;border-radius:10px;padding:1rem;margin:.75rem 0;position:relative}
+/* RAG */
+#rag-block{display:none;background:rgba(99,102,241,.07);border:1px solid #6366f133;border-radius:10px;padding:1rem;margin:.75rem 0}
 #rag-block.visible{display:block;animation:fadeIn .3s}
-.rag-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.rag-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;margin-bottom:.6rem}
 .rag-item{background:#1e293b;border-radius:6px;padding:.5rem .75rem;margin-bottom:.4rem;border-left:3px solid #6366f1;font-size:.8rem}
-.rag-item:last-child{margin-bottom:0}
 .rag-domain{display:inline-block;background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .4rem;font-size:.7rem;margin-bottom:.25rem}
 .rag-sim{float:right;color:#64748b;font-size:.7rem}
 .rag-text{color:#cbd5e1;line-height:1.4}
@@ -49,20 +48,34 @@ textarea:focus{outline:none;border-color:#6366f1}
 .panel pre{padding:1rem;margin:0;font-size:.85rem;white-space:pre-wrap;word-wrap:break-word;color:#e2e8f0;max-height:300px;overflow-y:auto}
 
 /* History & Artifacts */
+.list-toolbar{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.sort-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.35rem .75rem;border-radius:6px;cursor:pointer;font-size:.78rem;font-family:inherit;transition:all .2s}
+.sort-btn:hover,.sort-btn.active{border-color:#6366f1;color:#a5b4fc;background:#6366f122}
 .history-list,.artifacts-list{max-height:600px;overflow-y:auto}
-.history-item,.artifact-item{background:#1e293b;padding:.75rem;margin-bottom:.75rem;border-radius:8px;border-left:3px solid #475569;cursor:pointer;transition:all .2s}
+.history-item,.artifact-item{background:#1e293b;padding:.75rem;margin-bottom:.75rem;border-radius:8px;border-left:3px solid #475569;cursor:pointer;transition:all .2s;position:relative}
 .history-item:hover,.artifact-item:hover{border-left-color:#6366f1;background:#2d3a52}
-.history-timestamp{font-size:.7rem;color:#94a3b8;margin-bottom:.25rem}
+.history-timestamp{font-size:.7rem;color:#94a3b8;margin-bottom:.25rem;display:flex;justify-content:space-between;align-items:center}
 .history-query{font-weight:bold;margin-bottom:.25rem;font-size:.9rem}
 .history-meta{font-size:.7rem;color:#4ade80}
-.artifact-filename{font-family:monospace;color:#fbbf24}
+.artifact-row{display:flex;align-items:flex-start;gap:.6rem}
+.artifact-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.artifact-info{flex:1;min-width:0}
+.artifact-name{font-family:monospace;color:#fbbf24;font-size:.82rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.artifact-id-badge{background:#1e3a5f;color:#60a5fa;border-radius:4px;padding:.08rem .35rem;font-size:.65rem}
+.artifact-meta{font-size:.72rem;color:#64748b;margin-top:.2rem}
+.artifact-hypothesis{font-size:.78rem;color:#cbd5e1;margin-top:.2rem;line-height:1.4}
+.artifact-actions{display:flex;gap:.35rem;flex-shrink:0}
+.act-btn{background:transparent;border:1px solid #334155;color:#64748b;padding:.2rem .45rem;border-radius:4px;cursor:pointer;font-size:.68rem;font-family:inherit;transition:all .2s}
+.act-btn:hover{border-color:#6366f1;color:#a5b4fc}
+.act-btn.danger{border-color:#ef4444;color:#ef4444}
+.act-btn.danger:hover{background:#ef444422}
 
-.refresh-btn{background:#475569;color:#fff;border:none;padding:.5rem 1rem;border-radius:6px;cursor:pointer;margin-bottom:1rem}
+.refresh-btn{background:#475569;color:#fff;border:none;padding:.5rem 1rem;border-radius:6px;cursor:pointer;margin-right:.5rem}
 .refresh-btn:hover{background:#64748b}
 
-/* GRAPH TAB */
+/* GRAPH */
 .graph-toolbar{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
-.graph-layout{display:grid;grid-template-columns:1fr 300px;gap:1rem;height:680px}
+.graph-layout{display:grid;grid-template-columns:1fr 310px;gap:1rem;height:680px}
 #graph-container{background:#060d18;border:1px solid #1e3a5f;border-radius:12px;position:relative;overflow:hidden}
 .graph-sidebar{display:flex;flex-direction:column;gap:.75rem;overflow-y:auto}
 .graph-stats{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
@@ -72,8 +85,11 @@ textarea:focus{outline:none;border-color:#6366f1}
 .stat-label{color:#64748b;font-size:.78rem}
 .stat-value{color:#e2e8f0;font-weight:bold;font-size:.82rem}
 .graph-legend{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155}
-.legend-item{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.78rem;color:#94a3b8}
+.legend-item{display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem;font-size:.76rem;color:#94a3b8}
 .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-dash{width:18px;height:3px;border-radius:2px;flex-shrink:0;opacity:.85}
+.legend-sep{border-top:1px solid #1e3a5f;margin:.4rem 0}
+.legend-small{font-size:.68rem;color:#475569;margin-top:.15rem}
 .node-detail{background:#1e293b;border-radius:10px;padding:1rem;border:1px solid #334155;flex:1;min-height:0;overflow-y:auto}
 .node-detail-empty{color:#475569;font-size:.8rem;font-style:italic}
 .detail-field{margin-bottom:.55rem}
@@ -81,111 +97,77 @@ textarea:focus{outline:none;border-color:#6366f1}
 .detail-val{font-size:.8rem;color:#e2e8f0;word-break:break-all}
 .detail-badge{display:inline-block;padding:.12rem .45rem;border-radius:20px;font-size:.68rem;font-weight:bold}
 #graph-phase-badge{font-size:.8rem;color:#64748b}
-#graph-phase-badge.sigma{color:#22d3ee;animation:pulse 2s infinite}
+#graph-phase-badge.sigma{color:#64748b;animation:pulse 2s infinite}
 
-/* Artifact Modal */
+/* Modals */
 .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8)}
 .modal-content{background:#1e293b;margin:5% auto;padding:20px;border:1px solid #6366f1;border-radius:12px;width:80%;max-width:900px;max-height:80%;overflow-y:auto}
-.close{float:right;font-size:28px;font-weight:bold;cursor:pointer;color:#aaa}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.modal-header h2{margin:0}
+.modal-actions{display:flex;gap:.5rem}
+.close{font-size:28px;font-weight:bold;cursor:pointer;color:#aaa;background:none;border:none}
 .close:hover{color:#fff}
 pre{white-space:pre-wrap;word-wrap:break-word}
 
+/* Mode buttons */
 .mode-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-family:inherit;transition:all .2s}
 .mode-btn:hover{border-color:#6366f1;color:#e2e8f0}
 .mode-btn.active{background:#6366f122;border-color:#6366f1;color:#6366f1}
 .mode-btn:disabled{opacity:.4;cursor:not-allowed}
 
-/* ══════════════════════════════════════
-   TRACKER BUTTON (fixed top-right)
-══════════════════════════════════════ */
-#trackerBtn{
-  position:fixed;top:1.25rem;right:1.5rem;z-index:500;
-  background:linear-gradient(135deg,#0f172a,#1e293b);
-  border:1px solid #334155;border-radius:10px;
-  color:#94a3b8;padding:.5rem .85rem;cursor:pointer;
-  font-size:.85rem;font-family:inherit;
-  transition:all .25s;display:flex;align-items:center;gap:.4rem
-}
+/* Clarify panel */
+#clarify-panel{display:none;background:rgba(251,191,36,.07);border:1px solid #fbbf2433;border-radius:10px;padding:.85rem;margin-bottom:.75rem}
+.clarify-label{font-size:.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+.clarify-select{width:100%;background:#1e293b;color:#e2e8f0;border:1px solid #475569;padding:.5rem;border-radius:6px;font-size:.85rem;font-family:inherit}
+#clarify-detail{margin-top:.6rem;font-size:.78rem;color:#94a3b8;display:none}
+.clarify-gen-btn{margin-top:.6rem;background:#fbbf2422;color:#fbbf24;border:1px solid #fbbf2444;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem}
+
+/* REF update notification */
+#ref-update-notice{display:none;background:rgba(74,222,128,.08);border:1px solid #4ade8044;border-radius:8px;padding:.75rem 1rem;margin:.5rem 0;font-size:.82rem;color:#4ade80}
+
+/* Tracker */
+#trackerBtn{position:fixed;top:1.25rem;right:1.5rem;z-index:500;background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #334155;border-radius:10px;color:#94a3b8;padding:.5rem .85rem;cursor:pointer;font-size:.85rem;font-family:inherit;transition:all .25s;display:flex;align-items:center;gap:.4rem}
 #trackerBtn:hover{border-color:#6366f1;color:#a5b4fc;background:#6366f111}
-#trackerBtn .tracker-dot{
-  width:7px;height:7px;border-radius:50%;background:#4ade80;
-  animation:pulse 2s infinite
-}
+#trackerBtn .tracker-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
 #trackerBtn .tracker-dot.warn{background:#f59e0b}
 #trackerBtn .tracker-dot.error{background:#ef4444}
 
-/* ══════════════════════════════════════
-   TRACKER MODAL
-══════════════════════════════════════ */
-#trackerModal{
-  display:none;position:fixed;z-index:900;left:0;top:0;
-  width:100%;height:100%;background:rgba(0,0,0,.75);
-  backdrop-filter:blur(4px)
-}
-.tracker-modal-content{
-  background:#0f172a;margin:2% auto;
-  border:1px solid #334155;border-radius:16px;
-  width:92%;max-width:1100px;max-height:92vh;
-  overflow:hidden;display:flex;flex-direction:column
-}
-.tracker-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:1rem 1.5rem;border-bottom:1px solid #1e293b;flex-shrink:0
-}
+#trackerModal{display:none;position:fixed;z-index:900;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.75);backdrop-filter:blur(4px)}
+.tracker-modal-content{background:#0f172a;margin:2% auto;border:1px solid #334155;border-radius:16px;width:92%;max-width:1100px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column}
+.tracker-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;border-bottom:1px solid #1e293b;flex-shrink:0}
 .tracker-header h2{color:#6366f1;font-size:1.2rem;margin:0}
 .tracker-tabs{display:flex;gap:.5rem}
-.tracker-tab{background:transparent;border:1px solid #334155;color:#64748b;
-  padding:.4rem 1rem;border-radius:6px;cursor:pointer;font-size:.82rem;font-family:inherit;transition:all .2s}
+.tracker-tab{background:transparent;border:1px solid #334155;color:#64748b;padding:.4rem 1rem;border-radius:6px;cursor:pointer;font-size:.82rem;font-family:inherit;transition:all .2s}
 .tracker-tab.active{background:#6366f122;border-color:#6366f1;color:#a5b4fc}
 .tracker-tab-content{display:none;padding:1.25rem 1.5rem;overflow-y:auto;flex:1}
 .tracker-tab-content.active{display:block}
 .tracker-close{background:none;border:none;color:#64748b;font-size:1.5rem;cursor:pointer;line-height:1}
 .tracker-close:hover{color:#e2e8f0}
-
-/* Summary cards */
 .summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
 .s-card{background:#1e293b;border-radius:10px;padding:.85rem 1rem;border:1px solid #334155;text-align:center}
 .s-card .s-val{font-size:1.5rem;font-weight:bold;color:#e2e8f0;line-height:1.2}
 .s-card .s-label{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:.25rem}
-.s-card.green .s-val{color:#4ade80}
-.s-card.yellow .s-val{color:#fbbf24}
-.s-card.red .s-val{color:#ef4444}
-.s-card.blue .s-val{color:#60a5fa}
-
-/* Stats tables */
+.s-card.green .s-val{color:#4ade80}.s-card.yellow .s-val{color:#fbbf24}.s-card.red .s-val{color:#ef4444}.s-card.blue .s-val{color:#60a5fa}
 .t-section{margin-bottom:1.25rem}
 .t-section h4{color:#6366f1;font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
 .t-table{width:100%;border-collapse:collapse;font-size:.78rem}
-.t-table th{background:#1e293b;color:#64748b;padding:.45rem .6rem;text-align:left;font-weight:600;
-  border-bottom:1px solid #334155;white-space:nowrap}
+.t-table th{background:#1e293b;color:#64748b;padding:.45rem .6rem;text-align:left;font-weight:600;border-bottom:1px solid #334155;white-space:nowrap}
 .t-table td{padding:.4rem .6rem;border-bottom:1px solid #1e293b;color:#cbd5e1;vertical-align:middle}
 .t-table tr:hover td{background:#1e293b88}
 .t-badge{display:inline-block;padding:.1rem .35rem;border-radius:4px;font-size:.65rem;font-weight:bold}
-.t-badge.groq{background:#4ade8022;color:#4ade80}
-.t-badge.gemini{background:#60a5fa22;color:#60a5fa}
-.t-badge.hf{background:#a78bfa22;color:#a78bfa}
-.t-badge.nexus{background:#fbbf2422;color:#fbbf24}
-.t-badge.roman{background:#fb923c22;color:#fb923c}
-.t-badge.gen{background:#6366f122;color:#818cf8}
-.t-badge.ver{background:#22d3ee22;color:#22d3ee}
+.t-badge.groq{background:#4ade8022;color:#4ade80}.t-badge.gemini{background:#60a5fa22;color:#60a5fa}.t-badge.hf{background:#a78bfa22;color:#a78bfa}
+.t-badge.nexus{background:#fbbf2422;color:#fbbf24}.t-badge.roman{background:#fb923c22;color:#fb923c}
+.t-badge.gen{background:#6366f122;color:#818cf8}.t-badge.ver{background:#22d3ee22;color:#22d3ee}
 .enabled-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.3rem}
-
-/* Config tab */
 .cfg-toolbar{display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
-.cfg-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.4rem .85rem;
-  border-radius:6px;cursor:pointer;font-size:.8rem;font-family:inherit;transition:all .2s}
+.cfg-btn{background:#1e293b;border:1px solid #475569;color:#94a3b8;padding:.4rem .85rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-family:inherit;transition:all .2s}
 .cfg-btn:hover{border-color:#6366f1;color:#e2e8f0}
 .cfg-btn.primary{background:#6366f122;border-color:#6366f1;color:#a5b4fc}
 .cfg-btn.danger{border-color:#ef4444;color:#ef4444}
 .cfg-btn.danger:hover{background:#ef444422}
-
-.provider-card{background:#1e293b;border:1px solid #334155;border-radius:10px;
-  margin-bottom:.75rem;overflow:hidden;transition:border-color .2s}
+.provider-card{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:.75rem;overflow:hidden;transition:border-color .2s}
 .provider-card.disabled{opacity:.55}
-.provider-card-header{
-  display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;
-  cursor:pointer;user-select:none
-}
+.provider-card-header{display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;cursor:pointer;user-select:none}
 .provider-card-header:hover{background:#ffffff08}
 .pc-label{flex:1;font-size:.88rem;font-weight:600;color:#e2e8f0}
 .pc-meta{font-size:.72rem;color:#64748b;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
@@ -195,22 +177,23 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 .field-grid.full{grid-template-columns:1fr}
 .f-group{display:flex;flex-direction:column;gap:.2rem}
 .f-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
-.f-input{background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:.4rem .6rem;
-  border-radius:5px;font-size:.8rem;font-family:inherit;width:100%;transition:border-color .2s}
+.f-input{background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:.4rem .6rem;border-radius:5px;font-size:.8rem;font-family:inherit;width:100%;transition:border-color .2s}
 .f-input:focus{outline:none;border-color:#6366f1}
 select.f-input option{background:#1e293b}
 .role-checks{display:flex;gap:.75rem;align-items:center;margin-top:.2rem}
 .role-checks label{font-size:.78rem;color:#94a3b8;display:flex;align-items:center;gap:.3rem;cursor:pointer}
 .card-actions{display:flex;gap:.5rem;margin-top:.85rem;justify-content:flex-end}
-.card-btn{background:transparent;border:1px solid #334155;color:#94a3b8;
-  padding:.3rem .7rem;border-radius:5px;cursor:pointer;font-size:.75rem;font-family:inherit;transition:all .2s}
+.card-btn{background:transparent;border:1px solid #334155;color:#94a3b8;padding:.3rem .7rem;border-radius:5px;cursor:pointer;font-size:.75rem;font-family:inherit;transition:all .2s}
 .card-btn:hover{border-color:#6366f1;color:#a5b4fc}
 .card-btn.danger{border-color:#ef4444;color:#ef4444}
 .card-btn.danger:hover{background:#ef444422}
-
-/* Add provider form */
 #addProviderForm{background:#1e293b;border:1px dashed #334155;border-radius:10px;padding:1rem;margin-bottom:1rem;display:none}
 #addProviderForm.open{display:block}
+
+/* Trash tab */
+.trash-item{background:#1e293b;padding:.75rem;margin-bottom:.75rem;border-radius:8px;border-left:3px solid #ef444466}
+.trash-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem}
+.trash-actions{display:flex;gap:.4rem}
 </style>
 </head>
 <body>
@@ -218,7 +201,6 @@ select.f-input option{background:#1e293b}
 <h1>🔮 HX-AM Proxy v4</h1>
 <p class="subtitle">Dual-LLM: Generator (Groq) + Verifier (Gemini) | Invariant Engine | 3D Graph | RAG</p>
 
-<!-- TRACKER BUTTON -->
 <button id="trackerBtn" onclick="openTracker()">
   <span class="tracker-dot" id="trackerStatusDot"></span>
   📊 API Tracker
@@ -230,6 +212,7 @@ select.f-input option{background:#1e293b}
   <button class="tab-button" onclick="switchTab('history',this)">📜 История</button>
   <button class="tab-button" onclick="switchTab('artifacts',this)">📦 Артефакты</button>
   <button class="tab-button" onclick="switchTab('quarantine',this)">🚫 Карантин</button>
+  <button class="tab-button" onclick="switchTab('trash',this)">🗑️ Корзина</button>
 </div>
 
 <!-- ЗАПРОС -->
@@ -242,20 +225,24 @@ select.f-input option{background:#1e293b}
     <span id="mode-status" style="font-size:.72rem;color:#94a3b8;margin-left:.5rem"></span>
   </div>
 
-  <div id="clarify-panel" style="display:none;background:rgba(251,191,36,.07);border:1px solid #fbbf2433;border-radius:10px;padding:.85rem;margin-bottom:.75rem">
-    <div style="font-size:.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem">🔧 Выберите артефакт для уточнения</div>
-    <select id="clarify-select" style="width:100%;background:#1e293b;color:#e2e8f0;border:1px solid #475569;padding:.5rem;border-radius:6px;font-size:.85rem;font-family:inherit">
-      <option value="">— Загрузка кандидатов...</option>
+  <div id="clarify-panel">
+    <div class="clarify-label">🔧 Выберите артефакт для уточнения (все артефакты)</div>
+    <select id="clarify-select" class="clarify-select">
+      <option value="">— Загрузка артефактов...</option>
     </select>
-    <div id="clarify-detail" style="margin-top:.6rem;font-size:.78rem;color:#94a3b8;display:none"></div>
-    <button onclick="generateClarification()" style="margin-top:.6rem;background:#fbbf2422;color:#fbbf24;border:1px solid #fbbf2444;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem">🔧 Сгенерировать уточняющий вопрос</button>
+    <div id="clarify-detail"></div>
+    <button class="clarify-gen-btn" onclick="generateClarification()">🔧 Сгенерировать уточняющий вопрос</button>
   </div>
 
-  <textarea id="queryText" placeholder="Введите запрос... Система покажет связанные инварианты из базы знаний."></textarea>
+  <textarea id="queryText" placeholder="Введите запрос... Используйте [REF:artifact_id] для уточнения артефакта — он будет обновлён автоматически."></textarea>
 
   <div id="rag-block">
     <div class="rag-title">🧠 Система помнит — релевантные инварианты из базы знаний</div>
     <div id="rag-items"></div>
+  </div>
+
+  <div id="ref-update-notice">
+    ✅ Артефакт <strong id="ref-update-id"></strong> автоматически обновлён результатами запроса. История предыдущей версии сохранена внутри артефакта.
   </div>
 
   <button class="submit-btn" id="submitBtn" onclick="sendQuery()">🚀 Отправить</button>
@@ -280,13 +267,16 @@ select.f-input option{background:#1e293b}
         <div class="stat-row"><span class="stat-label">Мостов</span><span class="stat-value" id="stat-bridges">—</span></div>
       </div>
       <div class="graph-legend">
-        <h4>🎨 Легенда</h4>
-        <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>stable_cluster</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>hyx-portal / bridge</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>weak_pattern / mixed</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>noise / isolated</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>sigma_primitive</div>
-        <div style="margin-top:.5rem;font-size:.72rem;color:#475569">Размер узла = b_sync<br>Яркость ребра = weight</div>
+        <h4>🎨 Легенда узлов</h4>
+        <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div><div class="legend-dash" style="background:#4ade80"></div>stable_cluster</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div><div class="legend-dash" style="background:#6366f1"></div>hyx-portal / bridge</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><div class="legend-dash" style="background:#f59e0b"></div>weak_pattern / mixed</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div><div class="legend-dash" style="background:#ef4444"></div>noise / isolated</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#94a3b8"></div><div class="legend-dash" style="background:#94a3b8"></div>sigma_primitive</div>
+        <div class="legend-sep"></div>
+        <h4>🔗 Вес рёбер</h4>
+        <div class="legend-item"><div class="legend-dash" style="background:#3b82f6;width:22px;height:2px"></div><div class="legend-dash" style="background:#f59e0b;width:22px;height:3px"></div><div class="legend-dash" style="background:#ef4444;width:22px;height:5px"></div><span style="font-size:.7rem;margin-left:.25rem">низкий → высокий</span></div>
+        <div class="legend-small" style="margin-top:.3rem">Размер узла = b_sync &nbsp;|&nbsp; Толщина/цвет = weight</div>
       </div>
       <div class="node-detail" id="node-detail">
         <h4>🔍 Узел</h4>
@@ -298,13 +288,23 @@ select.f-input option{background:#1e293b}
 
 <!-- ИСТОРИЯ -->
 <div id="history-tab" class="tab-content">
-  <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить</button>
+  <div class="list-toolbar">
+    <button class="refresh-btn" onclick="loadHistory()">🔄 Обновить</button>
+    <button class="sort-btn active" id="hist-sort-desc" onclick="setSortHistory('desc')">↓ Новые сначала</button>
+    <button class="sort-btn" id="hist-sort-asc" onclick="setSortHistory('asc')">↑ Старые сначала</button>
+  </div>
   <div id="history-list" class="history-list">Загрузка...</div>
 </div>
 
 <!-- АРТЕФАКТЫ -->
 <div id="artifacts-tab" class="tab-content">
-  <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
+  <div class="list-toolbar">
+    <button class="refresh-btn" onclick="loadArtifacts()">🔄 Обновить</button>
+    <button class="sort-btn active" id="art-sort-new" onclick="setSortArtifacts('new')">↓ Новые</button>
+    <button class="sort-btn" id="art-sort-old" onclick="setSortArtifacts('old')">↑ Старые</button>
+    <button class="sort-btn" id="art-sort-bsync" onclick="setSortArtifacts('bsync')">b_sync ↓</button>
+    <button class="sort-btn" id="art-sort-domain" onclick="setSortArtifacts('domain')">A→Z домен</button>
+  </div>
   <div id="artifacts-list" class="artifacts-list">Загрузка...</div>
 </div>
 
@@ -313,20 +313,32 @@ select.f-input option{background:#1e293b}
   <button class="refresh-btn" onclick="loadQuarantine()">🔄 Обновить</button>
   <div id="quarantine-list" class="history-list">Загрузка...</div>
 </div>
+
+<!-- КОРЗИНА -->
+<div id="trash-tab" class="tab-content">
+  <div class="list-toolbar">
+    <button class="refresh-btn" onclick="loadTrash()">🔄 Обновить</button>
+    <span style="font-size:.75rem;color:#64748b">Удалённые артефакты. Восстановление возможно до окончательного удаления.</span>
+  </div>
+  <div id="trash-list">Загрузка...</div>
 </div>
+</div><!-- /container -->
 
 <!-- ARTIFACT MODAL -->
 <div id="artifactModal" class="modal">
   <div class="modal-content">
-    <span class="close" onclick="closeModal()">&times;</span>
-    <h2>📄 Детали</h2>
+    <div class="modal-header">
+      <h2>📄 Артефакт <span id="modal-art-id" style="font-size:.8rem;color:#64748b;font-weight:normal"></span></h2>
+      <div class="modal-actions">
+        <button class="cfg-btn danger" id="modal-delete-btn" onclick="deleteCurrentArtifact()">🗑 В корзину</button>
+        <button class="close" onclick="closeModal()">×</button>
+      </div>
+    </div>
     <pre id="artifactContent">Загрузка...</pre>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════
-     TRACKER MODAL
-════════════════════════════════════════════════════════ -->
+<!-- TRACKER MODAL -->
 <div id="trackerModal">
   <div class="tracker-modal-content">
     <div class="tracker-header">
@@ -339,8 +351,6 @@ select.f-input option{background:#1e293b}
         <button class="tracker-close" onclick="closeTracker()">✕</button>
       </div>
     </div>
-
-    <!-- DASHBOARD TAB -->
     <div id="tracker-dashboard" class="tracker-tab-content active">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
         <span style="font-size:.72rem;color:#64748b" id="tracker-date">—</span>
@@ -350,96 +360,40 @@ select.f-input option{background:#1e293b}
           <button class="cfg-btn danger" onclick="resetStats('all')">🗑 Сбросить всё</button>
         </div>
       </div>
-
-      <!-- Summary cards -->
       <div class="summary-cards">
-        <div class="s-card green">
-          <div class="s-val" id="sc-req-today">—</div>
-          <div class="s-label">Запросов сегодня</div>
-        </div>
-        <div class="s-card blue">
-          <div class="s-val" id="sc-tokens-today">—</div>
-          <div class="s-label">Токенов сегодня</div>
-        </div>
-        <div class="s-card red">
-          <div class="s-val" id="sc-errors-today">—</div>
-          <div class="s-label">Ошибок сегодня</div>
-        </div>
-        <div class="s-card yellow">
-          <div class="s-val" id="sc-active">—</div>
-          <div class="s-label">Активных провайдеров</div>
-        </div>
+        <div class="s-card green"><div class="s-val" id="sc-req-today">—</div><div class="s-label">Запросов сегодня</div></div>
+        <div class="s-card blue"><div class="s-val" id="sc-tokens-today">—</div><div class="s-label">Токенов сегодня</div></div>
+        <div class="s-card red"><div class="s-val" id="sc-errors-today">—</div><div class="s-label">Ошибок сегодня</div></div>
+        <div class="s-card yellow"><div class="s-val" id="sc-active">—</div><div class="s-label">Активных провайдеров</div></div>
       </div>
-
-      <!-- Account aggregates -->
       <div class="t-section">
-        <h4>🏦 По аккаунтам (лимиты расходуются на аккаунт, не на ключ)</h4>
-        <table class="t-table">
-          <thead><tr>
-            <th>Провайдер</th><th>Аккаунт</th><th>Ключей</th>
-            <th>Запросов (день)</th><th>Токенов (день)</th>
-            <th>Ошибок (день)</th><th>Всего</th>
-          </tr></thead>
-          <tbody id="acc-table-body"></tbody>
-        </table>
+        <h4>🏦 По аккаунтам</h4>
+        <table class="t-table"><thead><tr><th>Провайдер</th><th>Аккаунт</th><th>Ключей</th><th>Запросов (день)</th><th>Токенов (день)</th><th>Ошибок (день)</th><th>Всего</th></tr></thead><tbody id="acc-table-body"></tbody></table>
       </div>
-
-      <!-- Provider detail -->
       <div class="t-section">
         <h4>🔑 По провайдерам (детально)</h4>
-        <table class="t-table">
-          <thead><tr>
-            <th>Провайдер</th><th>Роль</th><th>Модель</th>
-            <th>Req (день)</th><th>Вх. токены</th><th>Исх. токены</th>
-            <th>Ошибки</th><th>Последний вызов</th><th>Статус</th>
-          </tr></thead>
-          <tbody id="prov-table-body"></tbody>
-        </table>
+        <table class="t-table"><thead><tr><th>Провайдер</th><th>Роль</th><th>Модель</th><th>Req (день)</th><th>Вх. токены</th><th>Исх. токены</th><th>Ошибки</th><th>Последний вызов</th><th>Статус</th></tr></thead><tbody id="prov-table-body"></tbody></table>
       </div>
     </div>
-
-    <!-- SETTINGS TAB -->
     <div id="tracker-settings" class="tracker-tab-content">
       <div class="cfg-toolbar">
         <button class="cfg-btn primary" onclick="saveAllProviders()">💾 Сохранить всё</button>
         <button class="cfg-btn" onclick="toggleAddForm()">➕ Добавить провайдера</button>
-        <span style="font-size:.72rem;color:#64748b;margin-left:.5rem">Порядок = приоритет. Провайдеры с меньшей нагрузкой аккаунта идут первыми автоматически.</span>
       </div>
-
-      <!-- Add provider form -->
       <div id="addProviderForm">
         <div style="font-size:.75rem;color:#6366f1;margin-bottom:.75rem;font-weight:600">➕ Новый провайдер</div>
         <div class="field-grid">
-          <div class="f-group"><div class="f-label">ID (уникальный)</div><input class="f-input" id="np-id" placeholder="groq_third_account"></div>
-          <div class="f-group"><div class="f-label">Провайдер</div>
-            <select class="f-input" id="np-provider" onchange="onNewProviderChange()">
-              <option value="groq">Groq</option>
-              <option value="gemini">Gemini</option>
-              <option value="huggingface">HuggingFace</option>
-            </select>
-          </div>
+          <div class="f-group"><div class="f-label">ID</div><input class="f-input" id="np-id" placeholder="groq_third"></div>
+          <div class="f-group"><div class="f-label">Провайдер</div><select class="f-input" id="np-provider" onchange="onNewProviderChange()"><option value="groq">Groq</option><option value="gemini">Gemini</option><option value="huggingface">HuggingFace</option></select></div>
           <div class="f-group"><div class="f-label">Аккаунт</div><input class="f-input" id="np-account" placeholder="Nexus / Roman"></div>
-          <div class="f-group"><div class="f-label">Название</div><input class="f-input" id="np-label" placeholder="Groq · Third Account"></div>
-          <div class="f-group full"><div class="f-label">API Ключ</div><input class="f-input" id="np-key" type="password" placeholder="gsk_... / AIzaSy... / hf_..."></div>
-          <div class="f-group"><div class="f-label">API Base URL</div><input class="f-input" id="np-base" placeholder="https://api.groq.com/openai/v1"></div>
-          <div class="f-group"><div class="f-label">Модель</div>
-            <select class="f-input" id="np-model"></select>
-          </div>
+          <div class="f-group"><div class="f-label">Название</div><input class="f-input" id="np-label" placeholder="Groq · Third"></div>
+          <div class="f-group full"><div class="f-label">API Ключ</div><input class="f-input" id="np-key" type="password" placeholder="gsk_..."></div>
+          <div class="f-group"><div class="f-label">API Base URL</div><input class="f-input" id="np-base"></div>
+          <div class="f-group"><div class="f-label">Модель</div><select class="f-input" id="np-model"></select></div>
         </div>
-        <div style="margin-top:.6rem">
-          <div class="f-label" style="margin-bottom:.4rem">Роли</div>
-          <div class="role-checks">
-            <label><input type="checkbox" id="np-role-gen"> generator</label>
-            <label><input type="checkbox" id="np-role-ver"> verifier</label>
-          </div>
-        </div>
-        <div style="display:flex;gap:.5rem;margin-top:.85rem">
-          <button class="cfg-btn primary" onclick="addProvider()">Добавить</button>
-          <button class="cfg-btn" onclick="toggleAddForm()">Отмена</button>
-        </div>
+        <div style="margin-top:.6rem"><div class="f-label" style="margin-bottom:.4rem">Роли</div><div class="role-checks"><label><input type="checkbox" id="np-role-gen"> generator</label><label><input type="checkbox" id="np-role-ver"> verifier</label></div></div>
+        <div style="display:flex;gap:.5rem;margin-top:.85rem"><button class="cfg-btn primary" onclick="addProvider()">Добавить</button><button class="cfg-btn" onclick="toggleAddForm()">Отмена</button></div>
       </div>
-
-      <!-- Provider cards -->
       <div id="provider-cards"></div>
     </div>
   </div>
@@ -447,7 +401,53 @@ select.f-input option{background:#1e293b}
 
 <script>
 // ══════════════════════════════════════════════════════
-// TABS (main)
+// STATE
+// ══════════════════════════════════════════════════════
+let historyEntries = [];
+let artifactsData = [];
+let histSortDir = 'desc';
+let artSortMode = 'new';
+let currentModalArtId = null;
+let trackerKnownModels = {};
+let trackerProviders = [];
+let allArtifactsForClarify = [];
+
+// ══════════════════════════════════════════════════════
+// NODE COLORS (единый источник истины для всех вкладок)
+// ══════════════════════════════════════════════════════
+const NODE_COLORS = {
+  stable_cluster:         '#4ade80',
+  'hyx-artifact':         '#4ade80',
+  'hyx-portal':           '#6366f1',
+  weak_pattern:           '#f59e0b',
+  mixed_patterns:         '#f59e0b',
+  noise:                  '#ef4444',
+  isolated:               '#ef4444',
+  sigma_primitive_candidate: '#94a3b8',   // ← серый, отличается от stable_cluster
+  terminological:         '#f97316',
+  unknown:                '#475569',
+};
+
+function typeColor(t) { return NODE_COLORS[t] || '#475569'; }
+
+function getNodeColor(node) {
+  if (node.is_bridge) return NODE_COLORS['hyx-portal'];
+  const s = node.stability || node.artifact_type || '';
+  // sigma_primitive_candidate по stability хранится как stable_cluster с phase_signal
+  // но artifact_type = sigma_primitive_candidate
+  return NODE_COLORS[node.artifact_type] || NODE_COLORS[s] || NODE_COLORS.unknown;
+}
+
+// Цвет ребра по весу: синий(0) → жёлтый(0.5) → красный(1)
+function weightToColor(w, maxW) {
+  if (!maxW || maxW === 0) return '#3b82f6';
+  const t = Math.min(w / maxW, 1.0);
+  if (t < 0.5) return lerpColor('#3b82f6', '#f59e0b', t * 2);
+  return lerpColor('#f59e0b', '#ef4444', (t - 0.5) * 2);
+}
+
+// ══════════════════════════════════════════════════════
+// TABS
 // ══════════════════════════════════════════════════════
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
@@ -458,6 +458,7 @@ function switchTab(name, btn) {
   if (name === 'artifacts') loadArtifacts();
   if (name === 'quarantine') loadQuarantine();
   if (name === 'graph') loadGraph();
+  if (name === 'trash') loadTrash();
 }
 
 // ══════════════════════════════════════════════════════
@@ -479,7 +480,7 @@ async function fetchRag() {
   try {
     const res = await fetch('/rag/context?text=' + encodeURIComponent(text) + '&top_k=3');
     const data = await res.json();
-    if (!data.similar || data.similar.length === 0) { block.classList.remove('visible'); return; }
+    if (!data.similar || !data.similar.length) { block.classList.remove('visible'); return; }
     const dropped = data.dropped || 0;
     items.innerHTML = data.similar.map(s => `
       <div class="rag-item">
@@ -487,7 +488,7 @@ async function fetchRag() {
         <span class="rag-sim">sim: ${s.similarity}</span>
         <div class="rag-text">${escHtml(s.invariant)}</div>
       </div>
-    `).join('') + (dropped > 0 ? `<div style="font-size:.68rem;color:#475569;margin-top:.3rem">⚠️ ${dropped} инвариант(а) отфильтровано (высокое сходство или домен уже представлен)</div>` : '');
+    `).join('') + (dropped > 0 ? `<div style="font-size:.68rem;color:#475569;margin-top:.3rem">⚠️ ${dropped} отфильтровано</div>` : '');
     block.classList.add('visible');
   } catch(e) { block.classList.remove('visible'); }
 }
@@ -497,9 +498,9 @@ async function fetchRag() {
 // ══════════════════════════════════════════════════════
 function modelBadge(model) {
   if (!model || model === 'none') return '';
+  const isHF = model.startsWith('huggingface/');
   const isGroq = model.startsWith('groq/');
   const isGemini = model.startsWith('gemini/');
-  const isHF = model.startsWith('huggingface/');
   const colors = { groq:'#4ade80', gemini:'#60a5fa', huggingface:'#a78bfa' };
   const key = isGroq ? 'groq' : isGemini ? 'gemini' : 'huggingface';
   const c = colors[key] || '#94a3b8';
@@ -508,47 +509,18 @@ function modelBadge(model) {
   return `<span style="font-size:.68rem;font-weight:normal;background:${c}22;color:${c};border:1px solid ${c}55;border-radius:4px;padding:.1rem .4rem;margin-left:.4rem">${tag}${label}</span>`;
 }
 
-function archivistPanel(a) {
-  const noveltyColor = { 'PHENOMENAL':'#22d3ee','NOVEL':'#4ade80','KNOWN':'#94a3b8' };
-  const novelty = a.novelty || '—';
-  const isRephrasing = novelty.startsWith('REPHRASING_OF');
-  const nc = isRephrasing ? '#f59e0b' : (noveltyColor[novelty] || '#94a3b8');
-  const mathColor = a.mathematical_verification === 'STRUCTURAL' ? '#4ade80' : a.mathematical_verification === 'CONTRADICTION' ? '#ef4444' : '#f59e0b';
-  const links = (a.cross_domain_links || []).join(', ') || '—';
-  const tags = (a.suggested_tags || []).map(t => `<span style="background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .3rem;font-size:.7rem;margin-right:.2rem">${t}</span>`).join('');
-  const score = typeof a.novelty_score === 'number' ? (a.novelty_score * 100).toFixed(0) + '%' : '—';
-  const conf = typeof a.confidence === 'number' ? (a.confidence * 100).toFixed(0) + '%' : '—';
-  return `<div class="panel" style="border-left-color:#22d3ee;min-width:280px;flex:1">
-    <h3>🗄️ Archivist</h3>
-    <pre style="font-size:.82rem">Новизна: <span style="color:${nc};font-weight:bold">${novelty}</span>
-Верификация: <span style="color:${mathColor}">${a.mathematical_verification || '—'}</span>
-Novelty score: ${score}   Confidence: ${conf}
-Кросс-домен: ${links}
-Reasoning: ${escHtml(a.reasoning_summary || '—')}</pre>
-    ${tags ? '<div style="padding:.5rem 1rem .75rem">' + tags + '</div>' : ''}
-  </div>`;
-}
-
-
-// ══════════════════════════════════════════════════════
-// VERIFIER PANEL — renders new schema fields
-// ══════════════════════════════════════════════════════
 function verPanel(ver) {
   if (!ver) return '—';
   const vcolor = ver.verdict==='VALID'?'#4ade80':ver.verdict==='WEAK'?'#fbbf24':'#ef4444';
   const scolor = ver.translation?.survival==='STRUCTURAL'?'#4ade80':'#f59e0b';
-  let out = '';
-  out += `verdict: <span style="color:${vcolor};font-weight:bold">${ver.verdict||'—'}</span>  conf: ${ver.confidence??'—'}\n`;
+  let out = `verdict: <span style="color:${vcolor};font-weight:bold">${ver.verdict||'—'}</span>  conf: ${ver.confidence??'—'}\n`;
   if (ver.translation) {
     out += `\nStep 0 → <b>${ver.translation.target_domain||'?'}</b>\n`;
     out += `survival: <span style="color:${scolor}">${ver.translation.survival||'?'}</span>\n`;
     if (ver.translation.translated_mechanism)
       out += `${escHtml(ver.translation.translated_mechanism.substring(0,180))}...\n`;
   }
-  if (ver.issues?.length) {
-    out += `\nissues:\n`;
-    ver.issues.forEach(i => { out += `  · ${escHtml(i.substring(0,120))}\n`; });
-  }
+  if (ver.issues?.length) { out += `\nissues:\n`; ver.issues.forEach(i => { out += `  · ${escHtml(i.substring(0,120))}\n`; }); }
   if (ver.operationalization) {
     const op = ver.operationalization;
     out += `\nmodel: <span style="color:#60a5fa">${op.model||'?'}</span>\n`;
@@ -560,8 +532,29 @@ function verPanel(ver) {
   return out;
 }
 
+function archivistPanel(a) {
+  const noveltyColor = { 'PHENOMENAL':'#22d3ee','NOVEL':'#4ade80','KNOWN':'#94a3b8' };
+  const novelty = a.novelty || '—';
+  const isRephrasing = novelty.startsWith('REPHRASING_OF');
+  const nc = isRephrasing ? '#f59e0b' : (noveltyColor[novelty] || '#94a3b8');
+  const mathColor = a.mathematical_verification==='STRUCTURAL'?'#4ade80':a.mathematical_verification==='CONTRADICTION'?'#ef4444':'#f59e0b';
+  const links = (a.cross_domain_links||[]).join(', ') || '—';
+  const tags = (a.suggested_tags||[]).map(t=>`<span style="background:#6366f122;color:#818cf8;border-radius:4px;padding:.1rem .3rem;font-size:.7rem;margin-right:.2rem">${t}</span>`).join('');
+  const score = typeof a.novelty_score==='number'?(a.novelty_score*100).toFixed(0)+'%':'—';
+  const conf = typeof a.confidence==='number'?(a.confidence*100).toFixed(0)+'%':'—';
+  return `<div class="panel" style="border-left-color:#22d3ee;min-width:280px;flex:1">
+    <h3>🗄️ Archivist</h3>
+    <pre style="font-size:.82rem">Новизна: <span style="color:${nc};font-weight:bold">${novelty}</span>
+Верификация: <span style="color:${mathColor}">${a.mathematical_verification||'—'}</span>
+Novelty score: ${score}   Confidence: ${conf}
+Кросс-домен: ${links}
+Reasoning: ${escHtml(a.reasoning_summary||'—')}</pre>
+    ${tags ? '<div style="padding:.5rem 1rem .75rem">' + tags + '</div>' : ''}
+  </div>`;
+}
+
 // ══════════════════════════════════════════════════════
-// QUERY
+// SEND QUERY
 // ══════════════════════════════════════════════════════
 async function sendQuery() {
   const text = document.getElementById('queryText').value.trim();
@@ -569,9 +562,12 @@ async function sendQuery() {
   const btn = document.getElementById('submitBtn');
   const loading = document.getElementById('loading');
   const pipeline = document.getElementById('pipeline');
+  const refNotice = document.getElementById('ref-update-notice');
   btn.disabled = true;
   loading.classList.add('active');
   pipeline.innerHTML = '';
+  refNotice.style.display = 'none';
+
   try {
     const res = await fetch('/query', {
       method: 'POST',
@@ -579,22 +575,29 @@ async function sendQuery() {
       body: JSON.stringify({text, domain: 'general', x_coordinate: 500})
     });
     const data = await res.json();
+
     if (data.rejected) {
       pipeline.innerHTML = `<div style="background:#1e293b;border-left:4px solid #ef4444;border-radius:12px;padding:1.25rem 1.5rem;color:#ef4444">
         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:.5rem">🚫 Запрос отклонён</div>
         <div style="color:#94a3b8;font-size:.85rem;margin-bottom:.25rem">Stage: <span style="color:#fbbf24">${data.stage}</span></div>
         <div style="color:#94a3b8;font-size:.85rem;margin-bottom:.25rem">Code: <span style="color:#f87171">${data.failure_code}</span></div>
-        <div style="color:#cbd5e1;font-size:.85rem;margin-top:.5rem">${escHtml(data.reason || '')}</div>
+        <div style="color:#cbd5e1;font-size:.85rem;margin-top:.5rem">${escHtml(data.reason||'')}</div>
       </div>`;
       return;
     }
+
+    // REF update notification
+    if (data.ref_updated) {
+      document.getElementById('ref-update-id').textContent = data.ref_updated;
+      refNotice.style.display = 'block';
+    }
+
     const s = data.structural || {};
     const tc = typeColor(s.artifact_type);
-    const ragCtx = (data.rag_context || []);
-    const ragDropped = data.rag_dropped || 0;
+    const ragCtx = data.rag_context || [];
     pipeline.innerHTML = `
       <div class="panel">
-        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain || '—'}</b>${ragCtx.length ? ' · 🧠 RAG:' + ragCtx.length : ''}${ragDropped ? ' · ✂️ фильтр:' + ragDropped : ''} ${modelBadge(data.gen_model)}</h3>
+        <h3>⚙️ Генератор · <b style="color:#fbbf24">${data.domain||'—'}</b>${ragCtx.length?' · 🧠 RAG:'+ragCtx.length:''}${data.rag_dropped?' · ✂️:'+data.rag_dropped:''} ${modelBadge(data.gen_model)}</h3>
         <pre>${JSON.stringify(data.generation, null, 2)}</pre>
       </div>
       <div class="panel">
@@ -603,18 +606,18 @@ async function sendQuery() {
       </div>
       <div class="panel">
         <h3>✅ Структура</h3>
-        <pre>Тип: <span style="color:${tc}">${s.artifact_type || '—'}</span>
-Stability: ${s.stability || '—'}
-Specificity: ${s.specificity ?? '—'}
-Centrality: ${s.centrality ?? '—'}
-Bridge: ${s.is_bridge ? '✅ ДА' : 'нет'}
-Similar: ${(s.similar_invariants || []).length}
-Phase: ${s.phase_signal?.signal || '—'}
-Domains(window): ${s.phase_signal?.unique_domains ?? '—'}
-Сохранён: ${data.saved ? '✅ ДА' : 'нет'}</pre>
+        <pre>Тип: <span style="color:${tc}">${s.artifact_type||'—'}</span>
+Stability: ${s.stability||'—'}
+Specificity: ${s.specificity??'—'}
+Centrality: ${s.centrality??'—'}
+Bridge: ${s.is_bridge?'✅ ДА':'нет'}
+Similar: ${(s.similar_invariants||[]).length}
+Phase: ${s.phase_signal?.signal||'—'}
+Domains(window): ${s.phase_signal?.unique_domains??'—'}
+Сохранён: ${data.saved?'✅ ДА (ID: '+data.job_id+')':'нет'}</pre>
       </div>
       ${data.archivist ? archivistPanel(data.archivist) : ''}`;
-    // Обновляем dot трекера
+
     refreshTrackerDot();
   } catch(err) {
     pipeline.innerHTML = `<div style="color:#ef4444;padding:1rem">❌ ${err.message}</div>`;
@@ -627,7 +630,6 @@ Domains(window): ${s.phase_signal?.unique_domains ?? '—'}
 // ══════════════════════════════════════════════════════
 // HISTORY
 // ══════════════════════════════════════════════════════
-let historyEntries = [];
 async function loadHistory() {
   const container = document.getElementById('history-list');
   container.innerHTML = 'Загрузка...';
@@ -635,21 +637,41 @@ async function loadHistory() {
     const res = await fetch('/history');
     const data = await res.json();
     historyEntries = data.history || [];
-    if (!historyEntries.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>'; return; }
-    container.innerHTML = historyEntries.map((e, i) => {
-      const t = new Date(e.time * 1000).toLocaleString('ru-RU');
-      const q = (e.query || '').substring(0, 120);
-      const at = (e.structural || {}).artifact_type || '—';
-      const tc = typeColor(at);
-      return `<div class="history-item" onclick="showHistoryDetail(${i})">
-        <div class="history-timestamp">🕐 ${t} · <b style="color:#94a3b8">${e.domain || 'general'}</b></div>
-        <div class="history-query">${escHtml(q)}</div>
-        <div class="history-meta">${e.saved ? '✅ сохранён' : '❌ не сохранён'} · <span style="color:${tc}">${at}</span>${(e.rag_context||[]).length ? ' · 🧠 RAG:' + e.rag_context.length : ''}</div>
-      </div>`;
-    }).join('');
+    renderHistory();
   } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
 }
-function showHistoryDetail(i) { const e = historyEntries[i]; if (e) showModal(JSON.stringify(e, null, 2)); }
+
+function setSortHistory(dir) {
+  histSortDir = dir;
+  document.getElementById('hist-sort-desc').classList.toggle('active', dir==='desc');
+  document.getElementById('hist-sort-asc').classList.toggle('active', dir==='asc');
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  if (!historyEntries.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📭 Пусто</p>'; return; }
+  const sorted = histSortDir === 'asc' ? [...historyEntries] : [...historyEntries].reverse();
+  container.innerHTML = sorted.map((e, i) => {
+    const realIdx = histSortDir === 'asc' ? i : historyEntries.length - 1 - i;
+    const t = new Date(e.time * 1000).toLocaleString('ru-RU');
+    const q = (e.query||'').substring(0, 120);
+    const at = (e.structural||{}).artifact_type || '—';
+    const tc = typeColor(at);
+    const artId = e.artifact_id || e.job_id || '—';
+    return `<div class="history-item" onclick="showHistoryDetail(${realIdx})">
+      <div class="history-timestamp">
+        <span>🕐 ${t}</span>
+        <span style="font-family:monospace;color:#60a5fa;font-size:.68rem">${artId !== '—' ? '📄 ' + artId : ''}</span>
+      </div>
+      <div style="font-size:.75rem;color:#64748b;margin-bottom:.2rem"><b style="color:#94a3b8">${e.domain||'general'}</b> · <span style="color:${tc}">${at}</span>${(e.rag_context||[]).length?' · 🧠 RAG:'+e.rag_context.length:''}</div>
+      <div class="history-query">${escHtml(q)}</div>
+      <div class="history-meta">${e.saved?'✅ сохранён':'❌ не сохранён'}</div>
+    </div>`;
+  }).join('');
+}
+
+function showHistoryDetail(i) { const e = historyEntries[i]; if(e) showModal(JSON.stringify(e, null, 2), null); }
 
 // ══════════════════════════════════════════════════════
 // ARTIFACTS
@@ -660,67 +682,136 @@ async function loadArtifacts() {
   try {
     const res = await fetch('/artifacts');
     const data = await res.json();
-    if (!data.artifacts?.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>'; return; }
-    container.innerHTML = data.artifacts.map(item => {
-      const isPortal = item.file.includes('.hyx-portal');
-      return `<div class="artifact-item" onclick="viewArtifact('${item.file}')">
-        <div class="artifact-filename">${isPortal ? '🌀' : '📄'} ${item.file}</div>
-      </div>`;
-    }).join('');
+    artifactsData = data.artifacts || [];
+    renderArtifacts();
   } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
 }
 
-async function viewArtifact(filename) {
-  showModal('Загрузка...');
+function setSortArtifacts(mode) {
+  artSortMode = mode;
+  document.querySelectorAll('.sort-btn[id^="art-sort"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('art-sort-' + (mode==='new'?'new':mode==='old'?'old':mode==='bsync'?'bsync':'domain')).classList.add('active');
+  renderArtifacts();
+}
+
+function renderArtifacts() {
+  const container = document.getElementById('artifacts-list');
+  if (!artifactsData.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;">📦 Пусто</p>'; return; }
+  let sorted = [...artifactsData];
+  if (artSortMode === 'old') sorted.reverse();
+  else if (artSortMode === 'bsync') sorted.sort((a,b) => (b.b_sync||0) - (a.b_sync||0));
+  else if (artSortMode === 'domain') sorted.sort((a,b) => (a.domain||'').localeCompare(b.domain||''));
+  // 'new' — уже в правильном порядке
+
+  container.innerHTML = sorted.map(item => {
+    const at = item.artifact_type || item.stability || 'unknown';
+    const tc = typeColor(at);
+    const isPortal = item.is_portal;
+    const vcolor = item.verdict==='VALID'?'#4ade80':item.verdict==='WEAK'?'#fbbf24':item.verdict==='FALSE'?'#ef4444':'#475569';
+    const noveltyShort = item.novelty ? item.novelty.split(':')[0] : '';
+    const nc = {PHENOMENAL:'#22d3ee',NOVEL:'#4ade80',KNOWN:'#94a3b8'}[noveltyShort] || '#475569';
+    const histMark = item.history_count > 0 ? `<span style="color:#60a5fa;font-size:.65rem">🔄 rev.${item.history_count}</span>` : '';
+    return `<div class="artifact-item">
+      <div class="artifact-row">
+        <div class="artifact-dot" style="background:${tc}" title="${at}"></div>
+        <div class="artifact-info">
+          <div class="artifact-name">
+            ${isPortal ? '🌀' : '📄'} ${item.file}
+            <span class="artifact-id-badge">${item.id}</span>
+            ${histMark}
+          </div>
+          <div class="artifact-meta">
+            <b style="color:#94a3b8">${item.domain||'—'}</b>
+            · <span style="color:${vcolor}">${item.verdict||'—'}</span> conf=${item.confidence}
+            · b_sync=<b>${item.b_sync}</b>
+            ${noveltyShort?`· <span style="color:${nc}">${noveltyShort}</span>`:''}
+          </div>
+          <div class="artifact-hypothesis">${escHtml(item.hypothesis_short||'')}</div>
+        </div>
+        <div class="artifact-actions">
+          <button class="act-btn" onclick="viewArtifact('${item.file}','${item.id}')">👁</button>
+          <button class="act-btn danger" onclick="confirmDelete('${item.id}',event)">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function confirmDelete(artId, evt) {
+  evt.stopPropagation();
+  if (!confirm(`Переместить артефакт ${artId} в корзину?`)) return;
+  try {
+    const res = await fetch(`/artifact/${artId}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.ok) { loadArtifacts(); loadGraph(); }
+  } catch(e) { alert('Ошибка: '+e.message); }
+}
+
+async function deleteCurrentArtifact() {
+  if (!currentModalArtId) return;
+  if (!confirm(`Переместить артефакт ${currentModalArtId} в корзину?`)) return;
+  try {
+    const res = await fetch(`/artifact/${currentModalArtId}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.ok) { closeModal(); loadArtifacts(); loadGraph(); }
+  } catch(e) { alert('Ошибка: '+e.message); }
+}
+
+async function viewArtifact(filename, artId) {
+  showModal('Загрузка...', artId || null);
   try {
     const res = await fetch(`/artifact/${encodeURIComponent(filename)}`);
     if (!res.ok) throw new Error('Не найден');
     const data = await res.json();
     document.getElementById('artifactContent').textContent = JSON.stringify(data, null, 2);
+    if (artId) document.getElementById('modal-art-id').textContent = artId;
   } catch(err) { document.getElementById('artifactContent').textContent = `Ошибка: ${err.message}`; }
 }
 
-function showModal(text) {
+function showModal(text, artId) {
+  currentModalArtId = artId || null;
   document.getElementById('artifactContent').textContent = text;
+  document.getElementById('modal-art-id').textContent = artId || '';
+  document.getElementById('modal-delete-btn').style.display = artId ? 'inline-block' : 'none';
   document.getElementById('artifactModal').style.display = 'block';
 }
-function closeModal() { document.getElementById('artifactModal').style.display = 'none'; }
-window.onclick = e => { if (e.target === document.getElementById('artifactModal')) closeModal(); };
+function closeModal() { document.getElementById('artifactModal').style.display = 'none'; currentModalArtId = null; }
+window.onclick = e => { if (e.target === document.getElementById('artifactModal')) closeModal(); if (e.target === document.getElementById('trackerModal')) closeTracker(); };
 
 // ══════════════════════════════════════════════════════
 // 3D GRAPH
 // ══════════════════════════════════════════════════════
 let graph3d = null;
-const NODE_COLORS = {
-  stable_cluster:'#4ade80','hyx-portal':'#6366f1',weak_pattern:'#f59e0b',
-  mixed_patterns:'#f59e0b',noise:'#ef4444',isolated:'#ef4444',
-  sigma_primitive_candidate:'#22d3ee',terminological:'#f97316',unknown:'#94a3b8'
-};
-function typeColor(t) { return NODE_COLORS[t] || '#94a3b8'; }
-function getNodeColor(node) { return node.is_bridge ? NODE_COLORS['hyx-portal'] : (NODE_COLORS[node.stability] || NODE_COLORS.unknown); }
-function getNodeSize(node) { return 4 + (node.b_sync || 0) * 6; }
+
+function getNodeSize(node) {
+  // Явная зависимость размера от b_sync: диапазон 2–18
+  const b = parseFloat(node.b_sync) || 0.1;
+  return 2 + Math.pow(b, 0.7) * 16;
+}
 
 async function loadGraph() {
   try {
     const [phaseRes, dataRes] = await Promise.all([fetch('/phase'), fetch('/graph/data')]);
     const phase = await phaseRes.json();
     const data = await dataRes.json();
+
     const badge = document.getElementById('graph-phase-badge');
     if (phase.signal === 'sigma_primitive_candidate') {
       badge.textContent = `⚡ SIGMA CANDIDATE · density=${phase.density} · domains=${phase.unique_domains}`;
       badge.className = 'sigma';
     } else if (phase.signal === 'template_loop') {
       badge.textContent = `⚠️ TEMPLATE LOOP · density=${phase.density} · domains=${phase.unique_domains}`;
-      badge.style.color = '#f59e0b';
-      badge.className = '';
+      badge.style.color = '#f59e0b'; badge.className = '';
     } else {
       badge.textContent = `Phase: ${phase.signal} · density=${phase.density}`;
-      badge.className = '';
+      badge.style.color = '#64748b'; badge.className = '';
     }
+
     document.getElementById('stat-nodes').textContent = data.meta.total_nodes;
     document.getElementById('stat-edges').textContent = data.meta.total_edges;
     document.getElementById('stat-clusters').textContent = data.meta.cluster_count;
     document.getElementById('stat-bridges').textContent = data.meta.bridge_count;
+
     if (!data.nodes.length) return;
     renderGraph3D(data);
   } catch(err) { console.error('Graph load error:', err); }
@@ -729,25 +820,41 @@ async function loadGraph() {
 function renderGraph3D(data) {
   const container = document.getElementById('graph-container');
   container.innerHTML = '';
-  const maxWeight = Math.max(...data.links.map(l => l.weight), 0.001);
+  const maxWeight = Math.max(...data.links.map(l => l.weight || 0), 0.001);
+
   const graphData = {
-    nodes: data.nodes.map(n => ({...n, name: n.id.substring(0,8), color: getNodeColor(n), val: getNodeSize(n)})),
-    links: data.links.map(l => ({...l, color: lerpColor('#1e3a5f','#6366f1', l.weight/maxWeight)}))
+    nodes: data.nodes.map(n => ({
+      ...n,
+      name: n.id.substring(0, 8),
+      color: getNodeColor(n),
+      val: getNodeSize(n),
+    })),
+    links: data.links.map(l => ({
+      ...l,
+      _edgeColor: weightToColor(l.weight || 0, maxWeight),
+    })),
   };
+
   graph3d = ForceGraph3D({controlType:'orbit'})(container)
     .width(container.clientWidth).height(container.clientHeight)
     .backgroundColor('#060d18')
-    .nodeLabel(n => `<div style="background:rgba(15,23,42,.95);border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;font-family:monospace;font-size:.75rem;max-width:260px">
+    .nodeRelSize(4)         // базовый размер — умножается на val
+    .nodeLabel(n => `<div style="background:rgba(15,23,42,.95);border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;font-family:monospace;font-size:.75rem;max-width:280px">
       <div style="color:#fbbf24;font-weight:bold;margin-bottom:.3rem">${n.id}</div>
       <div style="color:#94a3b8">domain: <span style="color:#e2e8f0">${n.domain}</span></div>
       <div style="color:#94a3b8">b_sync: <span style="color:#e2e8f0">${n.b_sync}</span></div>
       <div style="color:#94a3b8">stability: <span style="color:${getNodeColor(n)}">${n.stability}</span></div>
-      <div style="color:#94a3b8">bridge: <span style="color:#e2e8f0">${n.is_bridge ? '✅' : '—'}</span></div>
+      <div style="color:#94a3b8">bridge: <span style="color:#e2e8f0">${n.is_bridge?'✅':'—'}</span></div>
     </div>`)
-    .nodeColor(n => n.color).nodeVal(n => n.val).nodeOpacity(0.9)
-    .linkColor(l => l.color).linkWidth(l => 0.5 + (l.weight/maxWeight)*2.5).linkOpacity(0.6)
-    .linkLabel(l => `weight: ${l.weight.toFixed(3)} · sim: ${l.similarity.toFixed(3)}`)
-    .graphData(graphData).onNodeClick(node => showNodeDetail(node));
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .nodeOpacity(0.95)
+    .linkColor(l => l._edgeColor)
+    .linkWidth(l => 0.4 + (l.weight / maxWeight) * 4.5)   // ← ширина по весу
+    .linkOpacity(0.75)
+    .linkLabel(l => `weight: ${(l.weight||0).toFixed(3)} · sim: ${(l.similarity||0).toFixed(3)}`)
+    .graphData(graphData)
+    .onNodeClick(node => showNodeDetail(node));
 }
 
 function showNodeDetail(d) {
@@ -760,15 +867,16 @@ function showNodeDetail(d) {
     <div class="detail-field"><div class="detail-key">Stability</div><div class="detail-val">
       <span class="detail-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}66">${d.stability}</span>
     </div></div>
-    <div class="detail-field"><div class="detail-key">Cluster</div><div class="detail-val">${d.cluster >= 0 ? '#'+d.cluster : 'изолирован'}</div></div>
-    <div class="detail-field"><div class="detail-key">Bridge</div><div class="detail-val">${d.is_bridge ? '✅ ДА' : '—'}</div></div>
-    <div style="margin-top:.75rem">
-      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem" onclick="viewArtifact('${d.id}.json')">📄 Открыть артефакт</button>
+    <div class="detail-field"><div class="detail-key">Cluster</div><div class="detail-val">${d.cluster>=0?'#'+d.cluster:'изолирован'}</div></div>
+    <div class="detail-field"><div class="detail-key">Bridge</div><div class="detail-val">${d.is_bridge?'✅ ДА':'—'}</div></div>
+    <div style="margin-top:.75rem;display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem" onclick="viewArtifact('${d.id}.json','${d.id}')">📄 Артефакт</button>
+      <button class="refresh-btn" style="font-size:.75rem;padding:.35rem .75rem;background:#ef444433;color:#ef4444" onclick="confirmDelete('${d.id}',event)">🗑 Удалить</button>
     </div>`;
 }
 
 window.addEventListener('resize', () => {
-  if (graph3d) { const c = document.getElementById('graph-container'); graph3d.width(c.clientWidth).height(c.clientHeight); }
+  if (graph3d) { const c=document.getElementById('graph-container'); graph3d.width(c.clientWidth).height(c.clientHeight); }
 });
 
 // ══════════════════════════════════════════════════════
@@ -788,7 +896,7 @@ async function loadQuarantine() {
       const cc = codeColor[e.failure_code] || '#94a3b8';
       const rb = (e.rollback_actions||[]).join(', ')||'—';
       return `<div class="history-item" style="border-left-color:#ef4444">
-        <div class="history-timestamp">🕐 ${t} · stage: <b style="color:#fbbf24">${e.stage}</b></div>
+        <div class="history-timestamp"><span>🕐 ${t}</span><span style="color:#fbbf24;font-size:.68rem">stage: ${e.stage}</span></div>
         <div style="font-size:.85rem;color:#e2e8f0;margin:.3rem 0">${escHtml((e.query||'').substring(0,100))}</div>
         <div style="font-size:.75rem"><span style="background:${cc}22;color:${cc};border-radius:4px;padding:.1rem .4rem">${e.failure_code}</span></div>
         <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem">${escHtml(e.reason||'')}</div>
@@ -799,91 +907,142 @@ async function loadQuarantine() {
 }
 
 // ══════════════════════════════════════════════════════
-// QUESTION GENERATOR
+// TRASH (корзина)
+// ══════════════════════════════════════════════════════
+async function loadTrash() {
+  const container = document.getElementById('trash-list');
+  container.innerHTML = 'Загрузка...';
+  try {
+    const res = await fetch('/trash');
+    const data = await res.json();
+    const items = data.trash || [];
+    if (!items.length) { container.innerHTML = '<p style="color:#4ade80;text-align:center;padding:2rem">🗑️ Корзина пуста</p>'; return; }
+    container.innerHTML = items.map(item => {
+      const delDate = item.deleted_at ? new Date(item.deleted_at).toLocaleString('ru-RU') : '?';
+      return `<div class="trash-item">
+        <div class="trash-item-header">
+          <div>
+            <span style="font-family:monospace;color:#fbbf24;font-size:.82rem">${item.file}</span>
+            <span class="artifact-id-badge" style="margin-left:.4rem">${item.id}</span>
+          </div>
+          <div class="trash-actions">
+            <button class="act-btn" onclick="restoreArtifact('${item.id}')">♻️ Восстановить</button>
+            <button class="act-btn danger" onclick="permanentDelete('${item.id}')">🗑 Удалить навсегда</button>
+          </div>
+        </div>
+        <div style="font-size:.72rem;color:#64748b">Удалён: ${delDate} · Создан: ${item.created_at ? new Date(item.created_at).toLocaleString('ru-RU') : '?'}</div>
+        <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem"><b>${item.domain||'—'}</b> · ${item.verdict||'—'}</div>
+        <div style="font-size:.78rem;color:#cbd5e1;margin-top:.2rem">${escHtml((item.hypothesis_short||'').substring(0,100))}</div>
+      </div>`;
+    }).join('');
+  } catch(err) { container.innerHTML = `<div style="color:#ef4444">${err.message}</div>`; }
+}
+
+async function restoreArtifact(artId) {
+  if (!confirm(`Восстановить артефакт ${artId}?`)) return;
+  try {
+    const res = await fetch(`/trash/${artId}/restore`, {method:'POST'});
+    const data = await res.json();
+    if (data.ok) { loadTrash(); loadArtifacts(); loadGraph(); }
+  } catch(e) { alert('Ошибка восстановления: '+e.message); }
+}
+
+async function permanentDelete(artId) {
+  if (!confirm(`⚠️ НАВСЕГДА удалить артефакт ${artId}? Это действие необратимо.`)) return;
+  try {
+    const res = await fetch(`/trash/${artId}/permanent`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.ok) loadTrash();
+  } catch(e) { alert('Ошибка: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// QUESTION GENERATOR (CLARIFY MODE — все артефакты)
 // ══════════════════════════════════════════════════════
 let currentMode = 'manual';
+
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-'+mode).classList.add('active');
-  document.getElementById('clarify-panel').style.display = mode==='clarify'?'block':'none';
+  document.getElementById('clarify-panel').style.display = mode==='clarify' ? 'block' : 'none';
   const status = document.getElementById('mode-status');
-  if (mode==='novel') {
-    status.textContent='⏳ Генерация вопроса...';
-    document.getElementById('btn-novel').disabled=true;
-    fetch('/question/suggest').then(r=>r.json()).then(data=>{
-      if (data.question) {
-        document.getElementById('queryText').value=data.question;
-        status.textContent=`✓ вопрос от ${data.model?.split('/').pop()||'?'}`;
-        fetchRag();
-      } else { status.textContent='❌ не удалось'; }
-    }).catch(e=>{status.textContent='❌ '+e.message;})
-    .finally(()=>{document.getElementById('btn-novel').disabled=false;});
-  } else if (mode==='clarify') {
-    status.textContent='';
-    loadClarificationCandidates();
-  } else { status.textContent=''; }
+
+  if (mode === 'novel') {
+    status.textContent = '⏳ Генерация вопроса...';
+    document.getElementById('btn-novel').disabled = true;
+    fetch('/question/suggest').then(r=>r.json()).then(data => {
+      if (data.question) { document.getElementById('queryText').value = data.question; status.textContent = `✓ от ${data.model?.split('/').pop()||'?'}`; fetchRag(); }
+      else status.textContent = '❌ не удалось';
+    }).catch(e => { status.textContent = '❌ '+e.message; })
+    .finally(() => { document.getElementById('btn-novel').disabled = false; });
+
+  } else if (mode === 'clarify') {
+    status.textContent = '';
+    loadAllArtifactsForClarify();
+  } else {
+    status.textContent = '';
+  }
 }
 
-async function loadClarificationCandidates() {
-  const sel=document.getElementById('clarify-select');
-  sel.innerHTML='<option value="">— Загрузка...</option>';
+async function loadAllArtifactsForClarify() {
+  const sel = document.getElementById('clarify-select');
+  sel.innerHTML = '<option value="">— Загрузка...</option>';
   try {
-    const res=await fetch('/question/candidates');
-    const data=await res.json();
-    const cands=data.candidates||[];
-    if (!cands.length) { sel.innerHTML='<option value="">— Нет кандидатов</option>'; return; }
-    sel.innerHTML='<option value="">— Выберите артефакт...</option>'+cands.map(c=>{
-      const label=`[${c.domain}] ${c.verdict||'?'} conf=${c.confidence} · ${c.hypothesis_short.substring(0,50)}...`;
+    const res = await fetch('/artifacts/list');
+    const data = await res.json();
+    allArtifactsForClarify = data.artifacts || [];
+    if (!allArtifactsForClarify.length) { sel.innerHTML = '<option value="">— Нет артефактов</option>'; return; }
+    sel.innerHTML = '<option value="">— Выберите артефакт...</option>' + allArtifactsForClarify.map(c => {
+      const vc = c.verdict==='VALID'?'✅':c.verdict==='WEAK'?'⚠️':'❌';
+      const histMark = c.history_count > 0 ? ` [rev.${c.history_count}]` : '';
+      const label = `${vc} [${c.id}] [${c.domain}] ${c.artifact_type||''}${histMark} · ${(c.hypothesis_short||'').substring(0,50)}`;
       return `<option value="${c.id}">${label}</option>`;
     }).join('');
-    sel.onchange=()=>showClarifyDetail(cands,sel.value);
-  } catch(e) { sel.innerHTML='<option value="">— Ошибка</option>'; }
+    sel.onchange = () => showClarifyDetail(sel.value);
+  } catch(e) { sel.innerHTML = '<option value="">— Ошибка загрузки</option>'; }
 }
 
-function showClarifyDetail(candidates,id) {
-  const detail=document.getElementById('clarify-detail');
-  if(!id){detail.style.display='none';return;}
-  const c=candidates.find(x=>x.id===id);
-  if(!c)return;
-  detail.style.display='block';
-  detail.innerHTML=`<div style="margin-bottom:.3rem"><span style="color:#fbbf24">${c.verdict}</span> conf=${c.confidence} · issues:${c.issues_count} · spec=${c.specificity}</div><div style="color:#cbd5e1">${escHtml(c.hypothesis_short)}</div>`;
+function showClarifyDetail(artId) {
+  const detail = document.getElementById('clarify-detail');
+  if (!artId) { detail.style.display = 'none'; return; }
+  const c = allArtifactsForClarify.find(x => x.id === artId);
+  if (!c) return;
+  const vc = c.verdict==='VALID'?'#4ade80':c.verdict==='WEAK'?'#fbbf24':'#ef4444';
+  const at = typeColor(c.artifact_type||c.stability||'');
+  detail.style.display = 'block';
+  detail.innerHTML = `<div style="margin-bottom:.3rem">
+    <span style="color:${vc}">${c.verdict}</span> conf=${c.confidence} b_sync=${c.b_sync}
+    · issues:${c.issues_count} · spec=${c.specificity}
+    · <span style="color:${at}">${c.artifact_type||'—'}</span>
+    ${c.history_count>0?`<span style="color:#60a5fa;margin-left:.4rem">🔄 ревизий: ${c.history_count}</span>`:''}
+  </div>
+  <div style="color:#cbd5e1">${escHtml(c.hypothesis_short||'')}</div>`;
 }
 
 async function generateClarification() {
-  const sel=document.getElementById('clarify-select');
-  const artifactId=sel.value;
-  if(!artifactId)return;
-  const status=document.getElementById('mode-status');
-  status.textContent='⏳ Генерация уточняющего вопроса...';
+  const sel = document.getElementById('clarify-select');
+  const artifactId = sel.value;
+  if (!artifactId) return;
+  const status = document.getElementById('mode-status');
+  status.textContent = '⏳ Генерация уточняющего вопроса...';
   try {
-    const res=await fetch(`/question/clarify/${artifactId}`);
-    const data=await res.json();
-    if(data.error){status.textContent='❌ '+data.error;return;}
-    if(data.question){
-      document.getElementById('queryText').value=data.question;
-      status.textContent=`✓ вопрос от ${data.model?.split('/').pop()||'?'}`;
+    const res = await fetch(`/question/clarify/${artifactId}`);
+    const data = await res.json();
+    if (data.error) { status.textContent = '❌ '+data.error; return; }
+    if (data.question) {
+      document.getElementById('queryText').value = data.question;
+      status.textContent = `✓ от ${data.model?.split('/').pop()||'?'}`;
       fetchRag();
     }
-  } catch(e){status.textContent='❌ '+e.message;}
+  } catch(e) { status.textContent = '❌ '+e.message; }
 }
 
 // ══════════════════════════════════════════════════════
-// TRACKER — MODAL
+// TRACKER
 // ══════════════════════════════════════════════════════
-let trackerKnownModels = {};
-let trackerProviders = [];
-
-function openTracker() {
-  document.getElementById('trackerModal').style.display='block';
-  loadTrackerStats();
-  loadTrackerProviders();
-}
+function openTracker() { document.getElementById('trackerModal').style.display='block'; loadTrackerStats(); loadTrackerProviders(); }
 function closeTracker() { document.getElementById('trackerModal').style.display='none'; }
-
-document.getElementById('trackerModal').addEventListener('click', e => {
-  if (e.target===document.getElementById('trackerModal')) closeTracker();
-});
 
 function switchTrackerTab(name, btn) {
   document.querySelectorAll('.tracker-tab').forEach(b=>b.classList.remove('active'));
@@ -892,70 +1051,40 @@ function switchTrackerTab(name, btn) {
   document.getElementById('tracker-'+name).classList.add('active');
 }
 
-// ── Dashboard ──────────────────────────────────────────
 async function loadTrackerStats() {
   try {
     const res = await fetch('/tracker/stats');
     const data = await res.json();
     const t = data.totals || {};
-    document.getElementById('tracker-date').textContent = `Дата: ${t.date || '—'}`;
+    document.getElementById('tracker-date').textContent = `Дата: ${t.date||'—'}`;
     document.getElementById('sc-req-today').textContent = fmtNum(t.requests_today);
-    document.getElementById('sc-tokens-today').textContent = fmtNum(t.tokens_in_today + t.tokens_out_today);
+    document.getElementById('sc-tokens-today').textContent = fmtNum(t.tokens_in_today+t.tokens_out_today);
     document.getElementById('sc-errors-today').textContent = fmtNum(t.errors_today);
-    document.getElementById('sc-active').textContent = t.active_providers ?? '—';
-
-    // Account table
+    document.getElementById('sc-active').textContent = t.active_providers??'—';
     const accBody = document.getElementById('acc-table-body');
-    const accounts = data.accounts || [];
-    accBody.innerHTML = accounts.map(a => {
+    accBody.innerHTML = (data.accounts||[]).map(a => {
       const pc = a.provider==='groq'?'groq':a.provider==='gemini'?'gemini':'hf';
       const ac = a.account==='Nexus'?'nexus':'roman';
-      return `<tr>
-        <td><span class="t-badge ${pc}">${a.provider}</span></td>
-        <td><span class="t-badge ${ac}">${a.account}</span></td>
-        <td style="text-align:center">${a.key_count}</td>
-        <td>${fmtNum(a.requests_today)}</td>
-        <td>${fmtNum(a.tokens_in_today)}</td>
-        <td>${fmtNum(a.tokens_out_today)}</td>
-        <td style="color:${a.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(a.errors_today)}</td>
-        <td>${fmtNum(a.requests_total)}</td>
-      </tr>`;
+      return `<tr><td><span class="t-badge ${pc}">${a.provider}</span></td><td><span class="t-badge ${ac}">${a.account}</span></td><td style="text-align:center">${a.key_count}</td><td>${fmtNum(a.requests_today)}</td><td>${fmtNum(a.tokens_in_today)}</td><td>${fmtNum(a.tokens_out_today)}</td><td style="color:${a.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(a.errors_today)}</td><td>${fmtNum(a.requests_total)}</td></tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center;color:#475569;padding:1rem">Нет данных</td></tr>';
-
-    // Provider table
     const provBody = document.getElementById('prov-table-body');
-    const providers = data.providers || [];
-    provBody.innerHTML = providers.map(p => {
+    provBody.innerHTML = (data.providers||[]).map(p => {
       const pc = p.provider==='groq'?'groq':p.provider==='gemini'?'gemini':'hf';
       const roles = p.roles.map(r=>`<span class="t-badge ${r==='generator'?'gen':'ver'}">${r==='generator'?'gen':'ver'}</span>`).join(' ');
       const lastUsed = p.last_used ? new Date(p.last_used).toLocaleTimeString('ru-RU') : '—';
       const dot = `<span class="enabled-dot" style="background:${p.enabled?'#4ade80':'#ef4444'}"></span>`;
       const lastErr = p.last_error ? `<span title="${escHtml(p.last_error)}" style="cursor:help;color:#f87171">⚠️</span>` : '';
-      return `<tr>
-        <td>${dot}<span class="t-badge ${pc}">${p.label.split('·')[0].trim()}</span><br><span style="font-size:.65rem;color:#475569">${p.account}</span></td>
-        <td>${roles}</td>
-        <td style="font-size:.72rem;color:#94a3b8">${p.model.split('/').pop().substring(0,20)}</td>
-        <td>${fmtNum(p.requests_today)}</td>
-        <td>${fmtNum(p.tokens_in_today)}</td>
-        <td>${fmtNum(p.tokens_out_today)}</td>
-        <td style="color:${p.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(p.errors_today)} ${lastErr}</td>
-        <td style="font-size:.7rem;color:#64748b">${lastUsed}</td>
-        <td>${p.enabled?'<span style="color:#4ade80">✓ вкл</span>':'<span style="color:#475569">выкл</span>'}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;color:#475569;padding:1rem">Нет данных</td></tr>';
-
-    // Update status dot
+      return `<tr><td>${dot}<span class="t-badge ${pc}">${p.label.split('·')[0].trim()}</span><br><span style="font-size:.65rem;color:#475569">${p.account}</span></td><td>${roles}</td><td style="font-size:.72rem;color:#94a3b8">${p.model.split('/').pop().substring(0,20)}</td><td>${fmtNum(p.requests_today)}</td><td>${fmtNum(p.tokens_in_today)}</td><td>${fmtNum(p.tokens_out_today)}</td><td style="color:${p.errors_today>0?'#ef4444':'#4ade80'}">${fmtNum(p.errors_today)} ${lastErr}</td><td style="font-size:.7rem;color:#64748b">${lastUsed}</td><td>${p.enabled?'<span style="color:#4ade80">✓</span>':'<span style="color:#475569">выкл</span>'}</td></tr>`;
+    }).join('');
     const dot = document.getElementById('trackerStatusDot');
-    dot.className = 'tracker-dot' + (t.errors_today > 0 ? ' warn' : '');
+    dot.className = 'tracker-dot' + (t.errors_today>0?' warn':'');
   } catch(err) { console.error('tracker stats error:', err); }
 }
 
 async function resetStats(scope) {
-  if (scope==='all' && !confirm('Сбросить ВСЮ статистику? Данные не восстановить.')) return;
-  try {
-    await fetch('/tracker/reset', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
-    await loadTrackerStats();
-  } catch(e) { alert('Ошибка сброса: '+e.message); }
+  if (scope==='all' && !confirm('Сбросить ВСЮ статистику?')) return;
+  try { await fetch('/tracker/reset', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})}); await loadTrackerStats(); }
+  catch(e) { alert('Ошибка сброса: '+e.message); }
 }
 
 async function refreshTrackerDot() {
@@ -963,12 +1092,10 @@ async function refreshTrackerDot() {
     const res = await fetch('/tracker/stats');
     const data = await res.json();
     const dot = document.getElementById('trackerStatusDot');
-    const t = data.totals || {};
-    dot.className = 'tracker-dot' + (t.errors_today > 0 ? ' warn' : '');
+    dot.className = 'tracker-dot' + ((data.totals||{}).errors_today>0?' warn':'');
   } catch(e) {}
 }
 
-// ── Settings (provider cards) ──────────────────────────
 async function loadTrackerProviders() {
   try {
     const res = await fetch('/tracker/providers');
@@ -977,7 +1104,7 @@ async function loadTrackerProviders() {
     trackerKnownModels = data.known_models || {};
     renderProviderCards();
     updateNewProviderModels();
-  } catch(err) { console.error('tracker providers error:', err); }
+  } catch(err) { console.error(err); }
 }
 
 function renderProviderCards() {
@@ -985,53 +1112,27 @@ function renderProviderCards() {
   container.innerHTML = trackerProviders.map((p, i) => {
     const pc = p.provider==='groq'?'groq':p.provider==='gemini'?'gemini':'hf';
     const roles = p.roles.map(r=>`<span class="t-badge ${r==='generator'?'gen':'ver'}">${r}</span>`).join(' ');
-    const models = (trackerKnownModels[p.provider] || []).map(m => `<option value="${m}" ${m===p.model?'selected':''}>${m}</option>`).join('');
-    const keyMasked = p.api_key ? p.api_key.substring(0,8)+'••••••••'+p.api_key.slice(-4) : '';
+    const models = (trackerKnownModels[p.provider]||[]).map(m=>`<option value="${m}" ${m===p.model?'selected':''}>${m}</option>`).join('');
     return `<div class="provider-card ${p.enabled?'':'disabled'}" id="card-${p.id}">
       <div class="provider-card-header" onclick="toggleCard('${p.id}')">
         <span class="enabled-dot" style="background:${p.enabled?'#4ade80':'#475569'}"></span>
         <span class="pc-label">${escHtml(p.label)}</span>
-        <span class="pc-meta">
-          <span class="t-badge ${pc}">${p.provider}</span>
-          <span class="t-badge ${p.account==='Nexus'?'nexus':'roman'}">${p.account}</span>
-          ${roles}
-          <span style="color:#334155">pri=${p.priority}</span>
-        </span>
+        <span class="pc-meta"><span class="t-badge ${pc}">${p.provider}</span><span class="t-badge ${p.account==='Nexus'?'nexus':'roman'}">${p.account}</span>${roles}<span style="color:#334155">pri=${p.priority}</span></span>
         <span style="color:#334155;font-size:.8rem;margin-left:.5rem">▾</span>
       </div>
       <div class="provider-card-body" id="body-${p.id}">
         <div class="field-grid">
-          <div class="f-group"><div class="f-label">Название</div>
-            <input class="f-input" value="${escHtml(p.label)}" onchange="updateProvider(${i},'label',this.value)">
-          </div>
-          <div class="f-group"><div class="f-label">Аккаунт</div>
-            <input class="f-input" value="${escHtml(p.account)}" onchange="updateProvider(${i},'account',this.value)">
-          </div>
-          <div class="f-group full"><div class="f-label">API Ключ</div>
-            <input class="f-input" type="password" value="${escHtml(p.api_key)}" 
-              onchange="updateProvider(${i},'api_key',this.value)"
-              onfocus="this.type='text'" onblur="this.type='password'">
-          </div>
-          <div class="f-group"><div class="f-label">API Base URL</div>
-            <input class="f-input" value="${escHtml(p.api_base)}" onchange="updateProvider(${i},'api_base',this.value)">
-          </div>
-          <div class="f-group"><div class="f-label">Модель</div>
-            <select class="f-input" onchange="updateProvider(${i},'model',this.value)">
-              ${models}
-              <option value="${p.model}" ${!models.includes(p.model)?'selected':''}>— custom: ${p.model}</option>
-            </select>
-          </div>
-          <div class="f-group"><div class="f-label">Приоритет</div>
-            <input class="f-input" type="number" min="1" max="99" value="${p.priority}" onchange="updateProvider(${i},'priority',parseInt(this.value))">
-          </div>
+          <div class="f-group"><div class="f-label">Название</div><input class="f-input" value="${escHtml(p.label)}" onchange="updateProvider(${i},'label',this.value)"></div>
+          <div class="f-group"><div class="f-label">Аккаунт</div><input class="f-input" value="${escHtml(p.account)}" onchange="updateProvider(${i},'account',this.value)"></div>
+          <div class="f-group full"><div class="f-label">API Ключ</div><input class="f-input" type="password" value="${escHtml(p.api_key)}" onchange="updateProvider(${i},'api_key',this.value)" onfocus="this.type='text'" onblur="this.type='password'"></div>
+          <div class="f-group"><div class="f-label">API Base URL</div><input class="f-input" value="${escHtml(p.api_base)}" onchange="updateProvider(${i},'api_base',this.value)"></div>
+          <div class="f-group"><div class="f-label">Модель</div><select class="f-input" onchange="updateProvider(${i},'model',this.value)">${models}<option value="${p.model}" ${!models.includes(p.model)?'selected':''}>— ${p.model}</option></select></div>
+          <div class="f-group"><div class="f-label">Приоритет</div><input class="f-input" type="number" min="1" max="99" value="${p.priority}" onchange="updateProvider(${i},'priority',parseInt(this.value))"></div>
         </div>
-        <div style="margin-top:.6rem">
-          <div class="f-label" style="margin-bottom:.35rem">Роли</div>
-          <div class="role-checks">
-            <label><input type="checkbox" ${p.roles.includes('generator')?'checked':''} onchange="toggleRole(${i},'generator',this.checked)"> generator</label>
-            <label><input type="checkbox" ${p.roles.includes('verifier')?'checked':''} onchange="toggleRole(${i},'verifier',this.checked)"> verifier</label>
-          </div>
-        </div>
+        <div style="margin-top:.6rem"><div class="f-label" style="margin-bottom:.35rem">Роли</div><div class="role-checks">
+          <label><input type="checkbox" ${p.roles.includes('generator')?'checked':''} onchange="toggleRole(${i},'generator',this.checked)"> generator</label>
+          <label><input type="checkbox" ${p.roles.includes('verifier')?'checked':''} onchange="toggleRole(${i},'verifier',this.checked)"> verifier</label>
+        </div></div>
         <div class="card-actions">
           <button class="card-btn" onclick="toggleEnabled(${i})">${p.enabled?'⏸ Отключить':'▶ Включить'}</button>
           <button class="card-btn danger" onclick="deleteProvider('${p.id}')">🗑 Удалить</button>
@@ -1041,38 +1142,19 @@ function renderProviderCards() {
   }).join('') || '<div style="color:#475569;text-align:center;padding:2rem">Нет провайдеров</div>';
 }
 
-function toggleCard(id) {
-  const body = document.getElementById('body-'+id);
-  body.classList.toggle('open');
-}
-
-function updateProvider(idx, field, value) {
-  trackerProviders[idx][field] = value;
-}
-
+function toggleCard(id) { document.getElementById('body-'+id).classList.toggle('open'); }
+function updateProvider(idx, field, value) { trackerProviders[idx][field] = value; }
 function toggleRole(idx, role, checked) {
   const roles = trackerProviders[idx].roles || [];
-  if (checked && !roles.includes(role)) { trackerProviders[idx].roles = [...roles, role]; }
-  else if (!checked) { trackerProviders[idx].roles = roles.filter(r=>r!==role); }
+  trackerProviders[idx].roles = checked ? [...new Set([...roles, role])] : roles.filter(r=>r!==role);
 }
-
-function toggleEnabled(idx) {
-  trackerProviders[idx].enabled = !trackerProviders[idx].enabled;
-  renderProviderCards();
-}
+function toggleEnabled(idx) { trackerProviders[idx].enabled = !trackerProviders[idx].enabled; renderProviderCards(); }
 
 async function saveAllProviders() {
   try {
-    const res = await fetch('/tracker/providers', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({providers: trackerProviders})
-    });
+    const res = await fetch('/tracker/providers', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({providers: trackerProviders})});
     const data = await res.json();
-    if (data.ok) {
-      renderProviderCards();
-      alert(`✅ Сохранено ${data.count} провайдеров`);
-    }
+    if (data.ok) { renderProviderCards(); alert(`✅ Сохранено ${data.count} провайдеров`); }
   } catch(err) { alert('Ошибка: '+err.message); }
 }
 
@@ -1082,31 +1164,19 @@ async function deleteProvider(pid) {
     const res = await fetch(`/tracker/providers/${pid}`, {method:'DELETE'});
     const data = await res.json();
     if (data.ok) await loadTrackerProviders();
-  } catch(err) { alert('Ошибка удаления: '+err.message); }
+  } catch(err) { alert('Ошибка: '+err.message); }
 }
 
-// ── Add provider form ──────────────────────────────────
-function toggleAddForm() {
-  const form = document.getElementById('addProviderForm');
-  form.classList.toggle('open');
-}
-
+function toggleAddForm() { document.getElementById('addProviderForm').classList.toggle('open'); }
 function updateNewProviderModels() {
   const prov = document.getElementById('np-provider')?.value || 'groq';
   const sel = document.getElementById('np-model');
   if (!sel) return;
-  const models = trackerKnownModels[prov] || [];
-  sel.innerHTML = models.map(m=>`<option value="${m}">${m}</option>`).join('');
-  // Set default base url
-  const baseMap = {
-    groq: 'https://api.groq.com/openai/v1',
-    gemini: 'https://generativelanguage.googleapis.com/v1beta',
-    huggingface: 'https://api-inference.huggingface.co/v1',
-  };
+  sel.innerHTML = (trackerKnownModels[prov]||[]).map(m=>`<option value="${m}">${m}</option>`).join('');
+  const baseMap = {groq:'https://api.groq.com/openai/v1', gemini:'https://generativelanguage.googleapis.com/v1beta', huggingface:'https://api-inference.huggingface.co/v1'};
   const base = document.getElementById('np-base');
   if (base && baseMap[prov]) base.value = baseMap[prov];
 }
-
 function onNewProviderChange() { updateNewProviderModels(); }
 
 async function addProvider() {
@@ -1120,20 +1190,11 @@ async function addProvider() {
   const roles = [];
   if (document.getElementById('np-role-gen').checked) roles.push('generator');
   if (document.getElementById('np-role-ver').checked) roles.push('verifier');
-
-  if (!id || !api_key || !roles.length) { alert('Заполните: ID, API ключ и выберите хотя бы одну роль'); return; }
-
+  if (!id || !api_key || !roles.length) { alert('Заполните ID, API ключ и выберите роль'); return; }
   try {
-    const res = await fetch('/tracker/providers/add', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({id, provider, account, label: label||id, api_key, api_base, model, roles, enabled:true, priority:99})
-    });
+    const res = await fetch('/tracker/providers/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id, provider, account, label: label||id, api_key, api_base, model, roles, enabled:true, priority:99})});
     const data = await res.json();
-    if (data.ok) {
-      toggleAddForm();
-      await loadTrackerProviders();
-    }
+    if (data.ok) { toggleAddForm(); await loadTrackerProviders(); }
   } catch(err) { alert('Ошибка: '+err.message); }
 }
 
@@ -1141,24 +1202,27 @@ async function addProvider() {
 // UTILS
 // ══════════════════════════════════════════════════════
 function fmtNum(n) {
-  if (n === undefined || n === null) return '—';
-  if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
-  if (n >= 1000) return (n/1000).toFixed(1)+'K';
+  if (n===undefined||n===null) return '—';
+  if (n>=1000000) return (n/1000000).toFixed(1)+'M';
+  if (n>=1000) return (n/1000).toFixed(1)+'K';
   return String(n);
 }
 
 function lerpColor(a, b, t) {
   const ah=parseInt(a.replace('#',''),16), bh=parseInt(b.replace('#',''),16);
-  const ar=(ah>>16)&0xff,ag=(ah>>8)&0xff,ab=ah&0xff;
-  const br=(bh>>16)&0xff,bg=(bh>>8)&0xff,bb=bh&0xff;
-  const rr=Math.round(ar+(br-ar)*t),rg=Math.round(ag+(bg-ag)*t),rb=Math.round(ab+(bb-ab)*t);
+  const ar=(ah>>16)&0xff, ag=(ah>>8)&0xff, ab=ah&0xff;
+  const br=(bh>>16)&0xff, bg=(bh>>8)&0xff, bb=bh&0xff;
+  const rr=Math.round(ar+(br-ar)*t), rg=Math.round(ag+(bg-ag)*t), rb=Math.round(ab+(bb-ab)*t);
   return `#${((1<<24)+(rr<<16)+(rg<<8)+rb).toString(16).slice(1)}`;
 }
 
 function escHtml(str) {
-  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
 window.onload = () => { loadHistory(); loadArtifacts(); refreshTrackerDot(); };
 </script>
 </body>
